@@ -10,13 +10,14 @@ import warnings
 from flask import request, jsonify
 from views import *
 
+
 api = Api(app)
 
 
 
 # --------------------------------------------- API Resources
 
-class CityAPI(Resource):
+class CityListAPI(Resource):
     def get(self):
 
         #Query string to search for a given city
@@ -41,7 +42,8 @@ class CityAPI(Resource):
 
         return jsonify(cities=cities)
 
-class VenueAPI(Resource):
+
+class VenueListAPI(Resource):
     def get(self):
 
         initialize_session_vars()
@@ -55,6 +57,7 @@ class VenueAPI(Resource):
         # If city is filtered, find the lat/long of the first item in that city and return all other 
         # locations within zoom miles from it
         if session['city'] != '':
+            print "~~~ filtered city:", session['city']
             l = Location.query.filter_by(city = session['city']).first()
             latitude_start = l.latitude
             longitude_start = l.longitude
@@ -165,7 +168,7 @@ class VenueAPI(Resource):
 
         return jsonify(venues=venues)
 
-class PageAPI(Resource):
+class PageListAPI(Resource):
     def get(self):
         initialize_session_vars()
 
@@ -254,7 +257,8 @@ class PageAPI(Resource):
 
 # --------------------------------------------- API Endpoints
 
-api.add_resource(CityAPI, '/api/v1/city')
-api.add_resource(VenueAPI, '/api/v1/venue')
-api.add_resource(PageAPI, '/api/v1/page')
+api.add_resource(CityListAPI,  '/api/v1/city')
+api.add_resource(VenueListAPI, '/api/v1/venue')
+api.add_resource(PageListAPI,  '/api/v1/page')
+
 

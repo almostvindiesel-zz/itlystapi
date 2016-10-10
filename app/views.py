@@ -18,7 +18,8 @@ import re
 import urllib
 from fuzzywuzzy import fuzz
 from datetime import datetime
-from json import dumps
+import json
+from json import dumps, loads
 from flask_user import login_required, UserManager, UserMixin, SQLAlchemyAdapter, current_user
 from flask_mail import Mail
 #from contextlib import closing #from werkzeug.utils import secure_filename #requests.packages.urllib3.disable_warnings()
@@ -28,9 +29,10 @@ from sqlalchemy.sql import text
 from flask import Flask, request, session, g, redirect, url_for, abort, render_template, render_template_string, flash, jsonify, make_response
 from sqlalchemy.dialects import postgresql
 from flask_restful import Resource, Api
+from werkzeug.datastructures import ImmutableMultiDict
 
-#from PIL import Image
-#from resizeimage import resizeimage
+from PIL import Image
+from resizeimage import resizeimage
 import imghdr
 
 from models import db, User, Note, Venue, Location, VenueCategory, FoursquareVenue, FoursquareVenues
@@ -250,7 +252,7 @@ def edit_note():
 
 
 @app.route('/addnote', methods=['POST', 'GET'])
-@login_required 
+#@login_required 
 def add_note():
 
     """ 
@@ -262,8 +264,13 @@ def add_note():
     - location  (if the page has not been saved before by any user, we'll try to find the city or country that the page refers to)
     """
     print '-' * 80
+
+    session['user_id'] = 2;
+    print "--- USER AUTHENTICATION: Set user id to 2 "
+
     action = request.form.get('action')
 
+    
     if request.method == 'POST' and action == 'new_page_note_from_home':
 
         pn = PageNote(
@@ -312,7 +319,7 @@ def add_note():
         l = Location(
             'venue', 
             request.form.get('city', None),
-            request.form.get('latitude', None),     #Note: Yelp doesn't supply lat/long
+            request.form.get('latitude', None),     
             request.form.get('longitude', None)
         )
 
@@ -440,7 +447,7 @@ def add_note():
 
             #Insert Note or Image:
             if n:
-                print "--- Checking to see if identical page note exists in database. If not, insert it"
+                print "--- Checking to see if identical venue note exists in database. If not, insert it"
                 n.venue_id = uv.venue_id
                 n.find()
                 if not n.id:
