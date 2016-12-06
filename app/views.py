@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-print "Loading views.py ..."
+print "Loading " + __file__
 
 from app import app
 import warnings
@@ -843,7 +843,6 @@ def create_table(table):
     klass = getattr(models, table)
     #t = klass()
 
-
     try: 
         klass.__table__.create(db.session.bind, checkfirst=True)
         msg = "Created table: %s" % (table)
@@ -910,8 +909,6 @@ def show_admin():
 
 
     #Drop Order
-
-
 
 
     return render_template('show_admin.html', table_classes=table_classes, table_names=table_names, msg=msg)

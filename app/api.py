@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-print "Loading api.py ..."
+print "Loading " + __file__
 
 from app import app
 from flask_restful import Resource, Api

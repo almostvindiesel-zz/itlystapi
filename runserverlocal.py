@@ -1,4 +1,4 @@
-print "Loading runserver.py ..."
+print "Loading " + __file__
 
 import os
 os.environ['NOMNOMTES_ENVIRONMENT'] = 'local'

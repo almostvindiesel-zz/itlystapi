@@ -1,0 +1,7 @@
+venv/
+app/settingslocal.py
+app/__init__.pyc
+app/api.pyc
+app/models.pyc
+app/settingslocal.pyc
+app/views.pyc

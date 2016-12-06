@@ -22,7 +22,7 @@ from sqlalchemy.orm import relationship
 
 #print "os environment: ", os.environ["NOMNOMTES_ENVIRONMENT"]
 
-print "Loading models.py..."
+print "Loading " + __file__
 db = SQLAlchemy(app)
 
 
