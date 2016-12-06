@@ -821,7 +821,6 @@ def show_venues(id):
 @app.route('/updatesequencekeys', methods=['GET'])
 def update_sequence_keys():
 
-
     all_tables = ['location','venue','venue_category','user_venue','note','page','user_page','page_note','user_image']
 
     for table in all_tables:
@@ -855,6 +854,7 @@ def create_table(table):
             
     return redirect(url_for('show_admin', msg = msg ))
 
+
 @app.route('/admin/api/droptable/<table>', methods=['GET'])
 def drop_table(table):
 
@@ -874,6 +874,7 @@ def drop_table(table):
         msg = "ERROR. Could NOT drop table: %s" % (table)
         
     return redirect(url_for('show_admin', msg = msg ))
+
 
 @app.route('/admin/api/truncatetable/<table>', methods=['GET'])
 def truncate_table(table):

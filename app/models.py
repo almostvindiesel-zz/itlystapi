@@ -279,6 +279,8 @@ class EmailInvite(db.Model):
 # ALTER TABLE user_image add column image_type varchar(10);
 # ALTER TABLE user_image add column image_original varchar(100);
 # ALTER TABLE user_image add column image_name varchar(100);
+# ALTER TABLE user_image add column image_large varchar(100);
+
 
 class UserImage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
