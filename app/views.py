@@ -269,6 +269,16 @@ def add_note():
     print "--- USER AUTHENTICATION: Set user id to 2 "
 
     action = request.form.get('action')
+    
+    """
+    print "Action: ", request.form.get('action')
+    print "Action: ", request.args.get('action')
+
+    print json.dumps(request.form)
+    print json.dumps(request.args)
+    print request.args
+    print request.form
+    """
 
     
     if request.method == 'POST' and action == 'new_page_note_from_home':
@@ -323,6 +333,8 @@ def add_note():
             request.form.get('longitude', None)
         )
 
+
+
         n = None
         ui = None
         if request.form.get('image_url'):
@@ -339,9 +351,23 @@ def add_note():
             )
             print "--- Initialized note object with note: ", n.note
 
-        categoriesStr = request.form['categories']
-        categories = categoriesStr.split(",")
-        v.parent_category = classify_parent_category(categories, v.name.split())
+
+        #print "categories: "
+        #print request.form['categories']
+
+        print "before requst.form"
+        #categoriesStr = request.form['categories']
+        try:
+            categoriesStr = request.form.get('categories')
+            categories = categoriesStr.split(",")
+            v.parent_category = classify_parent_category(categories, v.name.split())
+        except Exception as e:
+            print "Could not get categories: ", e.message, e.args
+            categories = []
+
+
+        print "got here"
+        
         l.address1 = None #!!!
         l.address2 = None #!!!
 
@@ -626,6 +652,7 @@ def add_note():
 
 
 def classify_parent_category(category_list, name_tokens):
+
 
     print "--- Classifying venue.parent_category. Using existing categories (%s) and venue name %s" % (category_list, name_tokens)
     places = ['theater', 'park', 'museum', 'garden', 'club', 'plaza', 'beach', \

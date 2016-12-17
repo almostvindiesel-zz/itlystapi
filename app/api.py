@@ -17,6 +17,43 @@ api = Api(app)
 
 # --------------------------------------------- API Resources
 
+class NoteAPI(Resource):
+    def delete(self, note_id):
+
+        session['user_id'] = 2;
+        print "--- USER AUTHENTICATION: Set user id to 2 "
+
+        sql = 'delete from note where id = %s and user_id= %s ' % (note_id, session['user_id'])
+        print "delete note sql: ", sql
+        db.session.execute(sql)
+        db.session.commit()
+
+        return '', 204
+
+
+class VenueAPI(Resource):
+    def delete(self, venue_id):
+
+        session['user_id'] = 2;
+        print "--- USER AUTHENTICATION: Set user id to 2 "
+
+        sql = 'delete from user_venue where venue_id = %s and user_id= %s ' % (venue_id, session['user_id'])
+        print "delete user_venue sql: ", sql
+        db.session.execute(sql)
+        db.session.commit()
+
+        sql = 'delete from note where venue_id = %s and user_id= %s ' % (venue_id, session['user_id'])
+        print "delete note sql: ", sql
+        db.session.execute(sql)
+        db.session.commit()
+
+        sql = 'delete from venue where id = %s ' % (venue_id)
+        print "delete venue sql: ", sql
+        db.session.execute(sql)
+        db.session.commit()
+
+        return '', 204
+
 class CityListAPI(Resource):
     def get(self):
 
@@ -52,7 +89,6 @@ class VenueListAPI(Resource):
         venues_result_set = Venue.query.join(Location).join(UserVenue).outerjoin(UserImage).outerjoin(Note) \
                                 .filter(UserVenue.user_id == session['page_user_id']) \
                                 .order_by(UserVenue.user_rating.desc()) \
-
 
         # If city is filtered, find the lat/long of the first item in that city and return all other 
         # locations within zoom miles from it
@@ -120,7 +156,9 @@ class VenueListAPI(Resource):
                     )
                 notes_array.append(item)
             images_array = []
-            for img_row in row.images:
+
+            for img_row in row.images: 
+                print "image_large" + str(img_row.id) 
                 item = dict(
                     image_url = img_row.image_url,
                     image_large = img_row.image_large.replace('app',''),
@@ -256,9 +294,8 @@ class PageListAPI(Resource):
         return jsonify(pages=pages)
 
 # --------------------------------------------- API Endpoints
-
-api.add_resource(CityListAPI,  '/api/v1/city')
-api.add_resource(VenueListAPI, '/api/v1/venue')
-api.add_resource(PageListAPI,  '/api/v1/page')
-
-
+api.add_resource(NoteAPI,      '/api/v1/note/<note_id>')
+api.add_resource(VenueAPI,     '/api/v1/venue/<venue_id>')
+api.add_resource(VenueListAPI, '/api/v1/venues')
+api.add_resource(CityListAPI,  '/api/v1/cities')
+api.add_resource(PageListAPI,  '/api/v1/pages')
