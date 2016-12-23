@@ -16,18 +16,11 @@ if('ITLYST_ENVIRONMENT' in os.environ):
             print key, value
     elif os.environ['ITLYST_ENVIRONMENT'] == 'local':
         from app import settingslocal
+        from app import views
+        from api import CityListAPI, VenueListAPI, PageListAPI
     elif os.environ['EXCELNINJA_ENVIRONMENT'] == 'pythonanywhere':
         from app import settingspa
+        import app.views
+        from api import CityListAPI, VenueListAPI, PageListAPI
 # ------------------------------------------------------------------------------------------
-
-import app.views
-from api import CityListAPI, VenueListAPI, PageListAPI
-
-
-"""
-from app import views
-from api import CityListAPI, VenueListAPI, PageListAPI
-
-
-
 

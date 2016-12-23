@@ -1,3 +1,7 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+print "Loading " + __file__
+
 from app import app
 import os
 import shutil
