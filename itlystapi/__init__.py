@@ -20,7 +20,7 @@ if('ITLYST_ENVIRONMENT' in os.environ):
         from api import CityListAPI, VenueListAPI, PageListAPI
     elif os.environ['ITLYST_ENVIRONMENT'] == 'pythonanywhere':
         from itlystapi import settingspa
-        import itlystapi.views
-        from api import CityListAPI, VenueListAPI, PageListAPI
+	import itlystapi.views
+	from itlystapi.api import CityListAPI, VenueListAPI, PageListAPI
 # ------------------------------------------------------------------------------------------
 
