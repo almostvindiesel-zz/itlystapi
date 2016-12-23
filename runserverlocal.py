@@ -1,8 +1,9 @@
 print "Loading " + __file__
 
 import os
-os.environ['NOMNOMTES_ENVIRONMENT'] = 'local'
-print "Setting environment to:", os.environ['NOMNOMTES_ENVIRONMENT']
+os.environ['ITLYST_ENVIRONMENT'] = 'local'
+
+print "Setting environment to:", os.environ['ITLYST_ENVIRONMENT']
 
 from app import app
 
