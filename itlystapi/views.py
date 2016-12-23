@@ -43,6 +43,7 @@ from models import UserVenue, UserPage, Page, PageNote, UserImage, EmailInvite, 
 
 reload(sys)
 sys.setdefaultencoding('utf-8')
+app.secret_key = app.config['APP_SECRET_KEY']
 
 db_adapter = SQLAlchemyAdapter(db, User)        # Register the User model
 user_manager = UserManager(db_adapter, app)     # Initialize Flask-User
@@ -1094,6 +1095,9 @@ def show_landing_page():
 
 
 def initialize_session_vars():
+
+    #Necessary?
+    app.secret_key = app.config['APP_SECRET_KEY']
 
     #!!! hardcoded for simplier api access
     session['user_id'] = 2;
