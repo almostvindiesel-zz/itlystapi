@@ -10,7 +10,7 @@ warnings.simplefilter('ignore', ExtDeprecationWarning)
 #import sqlite3
 import urllib
 import os
-#import sys
+import sys
 import random
 import requests
 import requests.packages.urllib3
@@ -31,6 +31,10 @@ from sqlalchemy.dialects import postgresql
 from flask_restful import Resource, Api
 from werkzeug.datastructures import ImmutableMultiDict
 
+from flaskext.mysql import MySQL
+import mysql
+
+
 from PIL import Image
 from resizeimage import resizeimage
 import imghdr
@@ -38,43 +42,139 @@ import imghdr
 from models import db, User, Note, Venue, Location, VenueCategory, FoursquareVenue, FoursquareVenues
 from models import UserVenue, UserPage, Page, PageNote, UserImage, EmailInvite, Zdummy
 
+reload(sys)
+sys.setdefaultencoding('utf-8')
+
 db_adapter = SQLAlchemyAdapter(db, User)        # Register the User model
 user_manager = UserManager(db_adapter, app)     # Initialize Flask-User
 #mail = Mail(app)  
 
 
-# ----------------------------------------------------------------------------
-# Page Note
 
-@app.route('/saveimageslocally')
-def save_existing_images_locally():
+import boto
+import urllib
+import tinys3
+from boto.s3.key import Key
 
-    images = UserImage.query.all()
+
+@app.route('/admin/migrateimagestos3')
+def migrate_images_to_s3():
+
+    starting_id = 226
+    images = UserImage.query.filter(id > starting_id).all()
+    server_path = 'app/tmp/';
+    s3_bucket = 'itlyst'
 
     for i in images:
-        i.save_locally()
+
+        print "\r\nProcessing image: ", i.id
+        image_original_name = i.image_original.split('/')[::-1][0] 
+        """
+        i.image_original = i.image_url
+        db.session.add(i)
+        db.session.commit()
+        """
+        
+        print "Getting image from: ", i.image_original
+        urllib.urlretrieve(i.image_original,  server_path + image_original_name)
+        print "Wrote image to disk: ", server_path + image_original_name
+
+        filename, file_extension = os.path.splitext(server_path + image_original_name)
+        s3_name = str(i.id) +  file_extension
+
+        print "Uploading to s3..."
+        conn = tinys3.Connection(app.config['S3_ACCESS_KEY'], app.config['S3_SECRET_KEY'],tls=True,endpoint='s3-us-west-1.amazonaws.com')
+        f = open(server_path + image_original_name,'rb')
+        conn.upload(s3_name,f,s3_bucket)
+
+        i.image_url  = 'https://s3-us-west-1.amazonaws.com/%s/%s' % (s3_bucket, s3_name)
+        db.session.add(i)
+        db.session.commit()
+
+        print "Finished uploading to s3, url: ", s3_name
+
+    return 'done'
+
+@app.route('/admin/creates3imagethumbs')
+def create_s3_image_thumbnails():
+
+    starting_id = 0
+    images = UserImage.query.filter(id > starting_id)
+    server_path = 'app/tmp/';
+    s3_bucket = 'itlyst'
+
+    thumbnail_width = 200
+    large_width = 1024
+
+    for i in images:
+
+        print "\r\nProcessing image: ", i.id
+
+        s3_image_name = i.image_url.split('/')[::-1][0] 
+
+        print "  Getting image from s3: ", i.image_url, s3_image_name
+        urllib.urlretrieve(i.image_url,  server_path + s3_image_name)
+        print "  Wrote image to disk: ", server_path + s3_image_name
+
+        filename, file_extension = os.path.splitext(s3_image_name)
+        s3_image_large = filename + '_large' + file_extension
+        s3_image_thumb = filename + '_thumb' + file_extension
+        print "  s3_image_large: ", s3_image_large
+        print "  s3_image_thumb: ", s3_image_thumb
+
+        print "  Resizing large image... "
+        resized_image = resize_image(server_path, s3_image_name, s3_image_large, large_width)
+        upload_to_s3(server_path, resized_image, s3_image_large, s3_bucket)
+        i.image_large = 'https://s3-us-west-1.amazonaws.com/%s/%s' % (s3_bucket, s3_image_large)
+
+        print "  Resizing thumb image..."
+        resized_image = resize_image(server_path, s3_image_name, s3_image_thumb, thumbnail_width)
+        upload_to_s3(server_path, resized_image, s3_image_thumb, s3_bucket)
+        i.image_thumb = 'https://s3-us-west-1.amazonaws.com/%s/%s' % (s3_bucket, s3_image_thumb)
+
+        db.session.add(i)
+        db.session.commit()
+        print "  Commited new sizes to database"
 
     return 'done'
 
 
-@app.route('/img')
-#@login_required 
-def img():
+def upload_to_s3(path, image_name, s3_name, s3_bucket):
+    print "  Uploading to s3..."
+    conn = tinys3.Connection(app.config['S3_ACCESS_KEY'], app.config['S3_SECRET_KEY'],tls=True,endpoint='s3-us-west-1.amazonaws.com')
+    f = open(path + image_name,'rb')
+    conn.upload(s3_name,f,s3_bucket)
 
-    #Get Image, Save to tmp
-    image_url = 'https://upload.wikimedia.org/wikipedia/commons/4/4d/Cheeseburger.jpg'
-    #image_url =  request.form.get('image_url', None)
-    image_tmp_name = session['user_id'] + 'tmp'
+    print "  Finished uploading to s3"
 
+def resize_image(path, image_filename, image_filename_new, new_width):
+    image_tmp_full_path = os.path.join(path, image_filename) 
+    image_new_full_path = os.path.join(path, image_filename_new) 
+
+    try:   
+        fd_img = open(image_tmp_full_path, 'r')
+        print "  Resizing image to width %s" % new_width
+        img = Image.open(fd_img)
+        img = resizeimage.resize_width(img, new_width)
+        img.save(image_new_full_path, img.format)
+        print "  Saved : %s" % (image_new_full_path)
+        return image_filename_new
+    except Exception as e:
+        print "->Could not resize image since it would require enlarging it. Referencing original path\r\n", e.message, e.args
+        return image_filename
+
+
+       
+
+
+
+    """
     image_tmp_dir = 'img/'
     print "Getting image and saving to directory (%s) from url: \r\n %s" % (image_tmp_dir + image_tmp_name, image_url)
     image_tmp_full_path = os.path.join(image_tmp_dir, image_tmp_name) 
 
     try:   
 
-        f = open(image_tmp_full_path,'wb')
-        f.write(urllib.urlopen(image_url).read())
-        f.close()
 
         i.image_type = imghdr.what(image_tmp_full_path)
         print "Detected image type: %s" % (i.image_type)
@@ -91,16 +191,7 @@ def img():
 
         fd_img = open(image_tmp_full_path, 'r')
 
-        try:   
-            print "Resizing image to width %s" % large_width
-            img = Image.open(fd_img)
-            img = resizeimage.resize_width(img, large_width)
-            img.save(image_large_path, img.format)
-            print "Saved larger img: %s" % (image_large_path)
-        except Exception as e:
-            print "Could resize image since it would require enlarging it. Referencing original path\r\n", e.message, e.args
-            image_large_path = image_original_path
-            print "Saved larger img: %s" % (image_large_path)
+        
 
         try:   
             print "Resizing image to width %s" % thumbnail_width
@@ -118,7 +209,52 @@ def img():
         print "Exception ", e.message, e.args
 
     return 'a'
+    """
 
+
+#!!! probably can delete this now
+"""
+@app.route('/tests3')
+def s3_upload():
+    url = 'http://joanneandjohn.com/500days/img/16.jpg'
+    try:
+
+        #Retrieve Image from URL and Write locally
+        image_path = 'app/tmp/';
+        image_name = url.split('/')[::-1][0] 
+        urllib.urlretrieve(url, image_path + image_name)
+        print "Wrote image to disk: ", image_path + image_name
+
+
+        print "Uploading to s3..."
+        conn = tinys3.Connection(app.config['S3_ACCESS_KEY'], app.config['S3_SECRET_KEY'],tls=True,endpoint='s3-us-west-1.amazonaws.com')
+        f = open(image_path + image_name,'rb')
+        conn.upload(image_name,f,'itlyst')
+
+        print "Finished uploading to s3"
+
+        return "Success"
+    except Exception as e:
+        print "Error: ", e
+
+        return "Failure"
+
+#!!! probably can delete this now
+def percent_cb(complete, total):
+    sys.stdout.write('.')
+    sys.stdout.flush()
+
+#!!! probably can delete this now
+@app.route('/saveimageslocally')
+def save_existing_images_locally():
+
+    images = UserImage.query.all()
+
+    for i in images:
+        i.save_locally()
+
+    return 'done'
+"""
 
     
 
@@ -164,6 +300,8 @@ def edit_page_note():
         return jsonify(note_id = note_id, page_id = page_id, note = note)
     else:
         return jsonify(note_id = '', page_id = '', note = '')
+
+
 
 
 
@@ -217,38 +355,6 @@ def delete_image(id):
 
 # ----------------------------------------------------------------------------
 # Note
-
-@app.route('/deletenote/id/<int:id>', methods=['GET'])
-@login_required 
-def delete_note(id):
-    sql = 'delete from note where id = %s' % (id)
-    db.session.execute(sql)
-    db.session.commit()
-
-    initialize_session_vars()
-    return redirect(url_for('show_notes', username=session['username']))
-
-@app.route('/editnote', methods=['POST'])
-@login_required 
-def edit_note():
-    if request.method == 'POST':
-        note = request.form.get('note')
-        note_id = request.form.get('note_id')
-        venue_id = request.form.get('venue_id')
-
-        sql = text('update note set note = :note where id = :note_id')
-        sql = sql.bindparams(note=note, note_id=note_id)
-
-        #sql = text('update note set note = :note, source_url= :source_url where id = :note_id')
-        #sql = sql.bindparams(note=note, note_id=note_id, source_url='')
-        db.session.execute(sql)
-        db.session.commit()
-
-        return jsonify(note_id = note_id, venue_id = venue_id, note = note)
-    else:
-        return jsonify(note_id = '', venue_id = '', note = '')
-
-
 
 
 @app.route('/addnote', methods=['POST', 'GET'])
@@ -366,7 +472,6 @@ def add_note():
             categories = []
 
 
-        print "got here"
         
         l.address1 = None #!!!
         l.address2 = None #!!!
@@ -486,9 +591,10 @@ def add_note():
                 ui.find()
                 if not ui.id:
                     ui.insert()
-                    ui.save_locally()
-                response = jsonify(user_image_id = ui.id, venue_id = uv.venue_id, image_url = ui.image_url, msg = "Inserted image: %s" % ui.image_url )
+                    #ui.save_locally()
+                response = jsonify(user_image_id = ui.id, venue_id = uv.venue_id, image_original = ui.image_original, msg = "Inserted image: %s" % ui.image_url )
             else:
+                print "No note or image. Returning data..."
                 response = jsonify(venue_id = uv.venue_id, msg = "...")
             return response
 
@@ -526,7 +632,7 @@ def add_note():
                 ui.find()
                 if not ui.id:
                     ui.insert()
-                    ui.save_locally()
+                    #ui.save_locally()
                 response = jsonify(user_image_id = ui.id, venue_id = uv.venue_id, image_url = ui.image_url, msg = "Inserted image: %s" % ui.image_url )
             else:
                 response = jsonify(venue_id = uv.venue_id, msg = "...")
@@ -625,7 +731,7 @@ def add_note():
             ui.find()
             if not ui.id:
                 ui.insert()
-                ui.save_locally()
+                #ui.save_locally()
             response = jsonify(user_image_id = ui.id, page_id = p.id, image_url = ui.image_url, msg = "Inserted image: %s" % ui.image_url )
 
             """
@@ -690,20 +796,6 @@ def classify_parent_category(category_list, name_tokens):
 
     return 'unknown'
 
-
-@app.route('/findcityinstring', methods=['POST'])
-def find_city_in_string():
-
-    if request.method == 'POST' and request.form.get('string', None):
-        #Persist variables posted via the form to venues_result_set variables
-        string = request.form['string']
-        string_tokens = string.split(" ");
-        cities = db.session.execute("select distinct city from location")
-        for city in cities:
-            for token in string_tokens:
-                if(token.lower() == city['city'].lower()):
-                    return city['city']
-    return 'No city match'
 
 # ----------------------------------------------------------------------------
 # Page
@@ -844,23 +936,19 @@ def show_venues(id):
 # ----------------------------------------------------------------------------
 # Admin and Database 
 
+@app.route('/admin/', methods=['GET'])
+#  @login_required 
+def show_admin():
 
-@app.route('/updatesequencekeys', methods=['GET'])
-def update_sequence_keys():
+    msg = request.args.get('msg', '')
+    print '*' * 50, msg
 
-    all_tables = ['location','venue','venue_category','user_venue','note','page','user_page','page_note','user_image']
+    table_classes = app.config['TABLE_CLASSES']
+    table_names = app.config['TABLE_NAMES']
 
-    for table in all_tables:
-        print "table: ", table
-        sql = "select setval('%s_id_seq', (select max(id) FROM %s)+1)" % (table, table)
+    return render_template('show_admin.html', table_classes=table_classes, table_names=table_names, msg=msg)
 
-        print sql
-        db.session.execute(sql)
-        db.session.commit()
-
-    return 'done'
-
-@app.route('/admin/api/createtable/<table>', methods=['GET'])
+@app.route('/admin/api/v1/createtable/<table>', methods=['GET'])
 def create_table(table):
 
     print '-' * 50
@@ -881,7 +969,7 @@ def create_table(table):
     return redirect(url_for('show_admin', msg = msg ))
 
 
-@app.route('/admin/api/droptable/<table>', methods=['GET'])
+@app.route('/admin/api/v1/droptable/<table>', methods=['GET'])
 def drop_table(table):
 
     print '-' * 50
@@ -902,7 +990,7 @@ def drop_table(table):
     return redirect(url_for('show_admin', msg = msg ))
 
 
-@app.route('/admin/api/truncatetable/<table>', methods=['GET'])
+@app.route('/admin/api/v1/truncatetable/<table>', methods=['GET'])
 def truncate_table(table):
 
     print '-' * 50
@@ -913,7 +1001,6 @@ def truncate_table(table):
         db.session.commit()
         msg = "Truncated table: %s" % (table)
 
-
     except Exception as e:
         print "Error ", e.message, e.args
         msg = "ERROR. Could NOT drop table: %s" % (table)
@@ -921,349 +1008,26 @@ def truncate_table(table):
     return redirect(url_for('show_admin', msg = msg ))
 
 
-@app.route('/admin/', methods=['GET'])
-#!!! @login_required 
-def show_admin():
+#I think this is only for postgres--not relevant for mysql
+@app.route('/admin/api/updatesequencekeys', methods=['GET'])
+def update_sequence_keys():
 
-    msg = request.args.get('msg', '')
-    print '*' * 50, msg
+    all_tables = app.config['TABLE_NAMES']
 
-    table_classes = ['EmailInvite', 'User', 'Location', 'Venue', 'VenueCategory', \
-              'UserVenue', 'Note', 'Page', 'PageNote', 'UserPage', 'UserImage', 'Zdummy' ]
+    for table in all_tables:
+        print "table: ", table
+        sql = "select setval('%s_id_seq', (select max(id) FROM %s)+1)" % (table, table)
 
-    table_names = ['email_invite', 'user', 'location', 'venue', 'venue_category', \
-                   'user_venue', 'note', 'page', 'page_note', 'user_page', 'user_image', 'zdummy']
+        print sql
+        db.session.execute(sql)
+        db.session.commit()
 
+    msg = "done"
 
-    #Drop Order
-
-
-    return render_template('show_admin.html', table_classes=table_classes, table_names=table_names, msg=msg)
-
-
-@app.route('/truncatetables')
-#!!! @login_required 
-def truncate_tables(): 
-    #db.session.execute("delete from user where id >= 1")
-    db.session.execute("delete from note where id >= 1")
-    db.session.execute("delete from venue_category where id >= 1")
-    db.session.execute("delete from venue where id >= 1")
-    db.session.execute("delete from user_venue where user_id >= 1 or location_id >= 1")
-
-    db.session.execute("delete from location where id >= 1")
-
-    db.session.execute("delete from page_note where id >= 1")
-    db.session.execute("delete from user_page where id >= 1")
-    db.session.execute("delete from page where id >= 1")
-
-    db.session.commit()
-
-    return "truncated dbs"
-
-"""
-def query_db(db, query, args=(), one=False):
-    cur = db.execute(query)
-    r = [dict((cur.description[i][0], value) for i, value in enumerate(row)) for row in cur.fetchall()]
-    #cur.connection.close()
-    return (r[0] if r else None) if one else r
-"""
+    return redirect(url_for('show_admin', msg = msg ))
 
 # ----------------------------------------------------------------------------
 # Controllers / Views
-
-@app.route('/countries', methods=['GET'])
-def get_countries():
-
-    q = request.args.get('q', None)
-    test = request.args.get('test', None)
-
-    #!!! add user
-    if q:
-        where_filter = "where country like '%" + q + "%' and country is not null"
-    else:
-        where_filter = "where country is not null"
-
-    sql = "select country, max(id) id from location %s group by country" % (where_filter);
-    #print sql
-    countries_result_set = db.session.execute(sql)
-
-    country = {}
-    countries = []
-    for row in countries_result_set:
-        country = {}
-        country['id'] = row.id
-        country['country'] = row.country
-        country['tokens'] = row.country.split(" ");
-        countries.append(country)
-    
-    return jsonify(countries)
-
-@app.route('/cities', methods=['GET'])
-def get_cities():
-
-    q = request.args.get('q', None)
-    #test = request.args.get('test', None)
-
-    #!!! add user
-    if q:
-        where_filter = "where lower(city) like '%" + q.lower() + "%' and city is not null"
-    else:
-        where_filter = "where city is not null"
-
-
-    
-    sql = "select city, max(id) id from location %s group by city" % (where_filter);
-    #print sql
-    cities_result_set = db.session.execute(sql)
-
-    city = {}
-    cities = []
-    for row in cities_result_set:
-        #print row.city
-        city = {}
-        city['id'] = row.id
-        city['city'] = row.city
-        city['tokens'] = row.city.split(" ");
-        cities.append(city)
-    
-    #return cities
-    return jsonify(cities)
-
-def get_pages_without_location():
-    initialize_session_vars()
-
-    #!!! remove me
-    session['page_user_id'] = 2
-
-    #!!! Move to model
-    page_notes_result_set = Page.query.join(UserPage) \
-                            .filter(UserPage.user_id == session['page_user_id'], Page.location_id == None) \
-                            .order_by(UserPage.user_rating.desc()) \
-
-    pages =[]
-    for row in page_notes_result_set:
-
-        item = dict(
-             id=row.id,
-             source_url=row.source_url, 
-             source_title=row.source_title, 
-             is_starred=row.user_page.is_starred
-        )
-        pages.append(item) 
-
-    return pages
-
-
-@app.route('/pages', methods=['GET'])
-def get_pages_with_notes():
-    initialize_session_vars()
-
-    #Query Venues, apply filters
-    #!!! Move to model
-    page_notes_result_set = Page.query.join(Location).join(UserPage).outerjoin(UserImage).outerjoin(PageNote) \
-                            .filter(PageNote.user_id == session['page_user_id']) \
-                            .order_by(UserPage.is_starred.desc(),Page.id.asc())
-
-    # If city is filtered, find the lat/long of the first item in that city and return all other 
-    # locations within zoom miles from it
-    if session['city'] != '':
-        print "current city: ", session['city']
-        l = Location.query.filter_by(city = session['city']).first()
-        latitude_start = l.latitude
-        longitude_start = l.longitude
-        zoom = session['zoom']
-
-        sql = "SELECT id, SQRT( \
-                POW(69.1 * (latitude - %s), 2) + \
-                POW(69.1 * (%s - longitude) * COS(latitude / 57.3), 2)) AS distance \
-                FROM location \
-                GROUP BY id \
-                HAVING SQRT( \
-                POW(69.1 * (latitude - %s), 2) + \
-                POW(69.1 * (%s - longitude) * COS(latitude / 57.3), 2)) < %s" \
-                % (latitude_start, longitude_start, latitude_start, longitude_start, session['zoom'])
-
-        locations = db.session.execute(sql)
-        locationIDs = []
-        for location in locations:
-            locationIDs.append(location.id)
-        print "--- Filtered city: ", session['city']
-        print "--- Filtering locations to: ", locationIDs
-        page_notes_result_set = page_notes_result_set.filter( (Location.id.in_(locationIDs)) | (Location.city == session['city']))
-
-
-    if session['country'] != '':
-        print "~~~ filtered country:", session['country']
-        page_notes_result_set = page_notes_result_set.filter(Location.country == session['country'])
-    if session['is_hidden'] != '':
-        print "~~~ is_hidden:", session['is_hidden']
-        page_notes_result_set = page_notes_result_set.filter(UserPage.is_hidden == False)
-    #print '='*50
-    #print page_notes_result_set;
-
-    pages =[]
-    for row in page_notes_result_set:
-        notes_array = []
-        for note_row in row.notes:
-            item = dict(
-                note = note_row.note,
-                id = note_row.id
-                )
-            notes_array.append(item)
-        images_array = []
-        for img_row in row.images:
-            item = dict(
-                image_url = img_row.image_url,
-                image_large = img_row.image_large.replace('app',''),
-                image_thumb = img_row.image_thumb.replace('app',''),
-                id = img_row.id
-                )
-            images_array.append(item)
-        #!!! convert rating from string to float
-        item = dict(
-             notes=notes_array, 
-             images=images_array, 
-             id=row.id,
-             source_url=row.source_url, 
-             source_title=row.source_title, 
-             latitude=row.location.latitude, 
-             longitude=row.location.longitude,
-             city=row.location.city,
-             country=row.location.country,
-             source=row.source,
-             is_starred=row.user_page.is_starred,
-             user_rating=row.user_page.user_rating
-
-        )
-        pages.append(item) 
-
-        #print item['source_title']
-
-    return pages
-
-@app.route('/venues', methods=['GET'])
-def get_venues_with_notes():
-    initialize_session_vars()
-
-    #Query Venues, apply filters
-    #!!! Move to model
-    venues_result_set = Venue.query.join(Location).join(UserVenue).outerjoin(UserImage).outerjoin(Note) \
-                            .filter(UserVenue.user_id == session['page_user_id']) \
-                            .order_by(UserVenue.user_rating.desc()) \
-
-
-    # If city is filtered, find the lat/long of the first item in that city and return all other 
-    # locations within zoom miles from it
-    if session['city'] != '':
-        l = Location.query.filter_by(city = session['city']).first()
-        latitude_start = l.latitude
-        longitude_start = l.longitude
-        zoom = session['zoom']
-
-        sql = "SELECT id, SQRT( \
-                POW(69.1 * (latitude - %s), 2) + \
-                POW(69.1 * (%s - longitude) * COS(latitude / 57.3), 2)) AS distance \
-                FROM location \
-                GROUP BY id \
-                HAVING SQRT( \
-                POW(69.1 * (latitude - %s), 2) + \
-                POW(69.1 * (%s - longitude) * COS(latitude / 57.3), 2)) < %s" \
-                % (latitude_start, longitude_start, latitude_start, longitude_start, session['zoom'])
-
-        locations = db.session.execute(sql)
-        locationIDs = []
-        for location in locations:
-            locationIDs.append(location.id)
-        venues_result_set = venues_result_set.filter(Location.id.in_(locationIDs))
-
-    if session['country'] != '':
-        print "~~~ filtered country:", session['country']
-        venues_result_set = venues_result_set.filter(Location.country == session['country'])
-    if session['parent_category'] != '':
-        print "~~~ parent category:", session['parent_category']
-        venues_result_set = venues_result_set.filter(Venue.parent_category == session['parent_category'])
-    if session['is_hidden'] != '':
-        print "~~~ is_hidden:", session['is_hidden']
-        venues_result_set = venues_result_set.filter(UserVenue.is_hidden == False)
-    if session['user_rating'] != '':
-        print "~~~ user_rating:", session['user_rating']
-        venues_result_set = venues_result_set.filter(UserVenue.user_rating == session['user_rating'])
-    #print '-'*50
-    venues_result_set = venues_result_set.limit(300)
-
-    print "--- Get Venue SQL: \r\n", 
-    print str(venues_result_set.statement.compile(dialect=postgresql.dialect()))
-
-    venues =[]
-    for row in venues_result_set:
-
-        notes_array = []
-        for note_row in row.notes:
-
-            #!!! Add source back to model
-            if note_row.source_url.find('tripadvisor') >= 0:
-                note_source = 'tripadvisor'
-            elif note_row.source_url.find('yelp') >= 0:
-                note_source = 'yelp'
-            elif note_row.source_url.find('foursquare') >= 0:
-                note_source = 'foursquare'
-            else:
-                note_source = 'other'
-
-            item = dict(
-                note = note_row.note,
-                id = note_row.id,
-                source = note_source
-                )
-            notes_array.append(item)
-        images_array = []
-        for img_row in row.images:
-            item = dict(
-                image_url = img_row.image_url,
-                image_large = img_row.image_large.replace('app',''),
-                image_thumb = img_row.image_thumb.replace('app',''),
-                id = img_row.id
-                )
-            images_array.append(item)
-        #!!! convert rating from string to float
-        item = dict(
-             notes=notes_array, 
-             images=images_array, 
-             id=row.id,
-             name=row.name, 
-             parent_category=row.parent_category, 
-             source_url=row.source_url, 
-             latitude=row.location.latitude, 
-             longitude=row.location.longitude,
-             city=row.location.city,
-             state=row.location.state,
-             country=row.location.country,
-             source=row.source,
-             foursquare_reviews=row.foursquare_reviews,
-             foursquare_rating=str_to_float(row.foursquare_rating), 
-             foursquare_url=row.foursquare_url,
-             tripadvisor_reviews=row.tripadvisor_reviews,
-             tripadvisor_rating=str_to_float(row.tripadvisor_rating),
-             tripadvisor_url=row.tripadvisor_url,
-             yelp_reviews=row.yelp_reviews,
-             yelp_rating=str_to_float(row.yelp_rating),
-             yelp_url=row.yelp_url,
-             is_starred=row.user_venue.is_starred,
-             user_rating=row.user_venue.user_rating
-        )
-
-        venues.append(item) 
-             
-
-    #Google Maps Requires the response to have a particular format
-    #!!! fix this
-    if request.method == 'GET':
-        format = request.args.get("format")
-        if format == 'js':
-            markers = dict({'markers':venues})
-            return make_response("gmapfeed(" + dumps(markers) + ");")
-
-    return jsonify(venues)
 
 
 
@@ -1324,176 +1088,10 @@ def update_venue_categories():
 
     return redirect(url_for('show_notes', username=session['username']))
 
+@app.route('/', methods=['GET'])
 @app.route('/lp', methods=['GET'])
 def show_landing_page():
-
     return render_template('lp.html')
-
-@app.route('/', methods=['GET'])
-def redirect_to_username_homepage():
-
-    print '-' * 50
-    initialize_session_vars()
-    return redirect(url_for('show_notes', username=session['username']))
-
-    """
-    if 'user_id' in session:
-        
-    else: 
-        initialize_session_vars()
-        return redirect(url_for('show_landing_page'))
-    """
-
-
-
-@app.route('/new', methods=['GET'])
-def new_layout():
-
-    #!!!
-    session['username'] = 'almostvindiesel'
-
-    #Get Session Filters and Convert them for use with sql where statements
-    #session['username'] = username
-    initialize_session_vars()
-
-    #Get Venues, Pages, and Pages without a location (for location categorization)
-    venues = get_venues_with_notes()
-    pages  = get_pages_with_notes()
-    pages_no_loc = get_pages_without_location()
-
-
-    #Unique Cities, limited by existing selections
-    #!!! move to model
-    city_sql = "select distinct city \
-           from venue v \
-             inner join user_venue uv on v.id = uv.venue_id \
-             inner join location l on l.id = v.location_id \
-           where uv.user_id=%s and city is not null" % (session['page_user_id'])
-    for key in session:
-        if key == 'country' or key == 'parent_category' or key == 'is_hidden':
-            if session[key] != '':
-                city_sql = city_sql + " and %s='%s' " % (key, session[key])
-    cities = db.session.execute(city_sql)
-
-
-    #Unique Countries, limited by existing selections
-    #!!! move to model
-    state_sql = "select distinct country \
-           from venue v \
-             inner join user_venue uv on v.id = uv.venue_id \
-             inner join location l on l.id = v.location_id \
-           where uv.user_id=%s and city is not null" % (session['page_user_id'])
-    countries = db.session.execute(state_sql)
-
-
-    #Unique Categories, limited by existing selections
-    #!!! add user id, move to model
-    parent_category_sql = "select distinct parent_category \
-           from venue v \
-             inner join user_venue uv on v.id = uv.venue_id \
-             inner join location l on l.id = v.location_id \
-           where uv.user_id=%s and city is not null" % (session['page_user_id'])
-    for key in session:
-        if key == 'country' or key == 'is_hidden':
-            if session[key] != '':
-                parent_category_sql = parent_category_sql + " and %s='%s' " % (key, session[key])
-    parent_category_sql = parent_category_sql + " order by parent_category asc"                
-    parent_categories = db.session.execute(parent_category_sql)
-
-
-
-
-    #User
-    page_user = User.query.filter_by(id = session['page_user_id']).first()
-
-
-    #Shareable url
-    session['share_url'] = "%s/profile/%s?" % (app.config['HOSTNAME'],session['username'])
-    for key in session:
-        if key == 'city' or key == 'country' or key == 'parent_category' or key == 'is_hidden' or key == 'zoom':
-            if session[key] != '':
-                session['share_url'] = session['share_url'] + "%s=%s&" % (key,session[key])
-    session['share_url'] = session['share_url'][:-1]
-
-
-
-    return render_template('show_notes.html', venues=venues, pages=pages, pages_no_loc=pages_no_loc, \
-                            cities=cities, countries=countries, \
-                            parent_categories=parent_categories, user=page_user)
-    #return dumps(locations_json)
-
-
-@app.route('/profile/<username>', methods=['GET'])
-def show_notes(username):
-
-
-    #Get Session Filters and Convert them for use with sql where statements
-    session['username'] = username
-    initialize_session_vars()
-
-    #Get Venues, Pages, and Pages without a location (for location categorization)
-    venues = get_venues_with_notes()
-    pages  = get_pages_with_notes()
-    pages_no_loc = get_pages_without_location()
-
-
-    #Unique Cities, limited by existing selections
-    #!!! move to model
-    city_sql = "select distinct city \
-           from venue v \
-             inner join user_venue uv on v.id = uv.venue_id \
-             inner join location l on l.id = v.location_id \
-           where uv.user_id=%s and city is not null" % (session['page_user_id'])
-    for key in session:
-        if key == 'country' or key == 'parent_category' or key == 'is_hidden':
-            if session[key] != '':
-                city_sql = city_sql + " and %s='%s' " % (key, session[key])
-    cities = db.session.execute(city_sql)
-
-
-    #Unique Countries, limited by existing selections
-    #!!! move to model
-    state_sql = "select distinct country \
-           from venue v \
-             inner join user_venue uv on v.id = uv.venue_id \
-             inner join location l on l.id = v.location_id \
-           where uv.user_id=%s and city is not null" % (session['page_user_id'])
-    countries = db.session.execute(state_sql)
-
-
-    #Unique Categories, limited by existing selections
-    #!!! add user id, move to model
-    parent_category_sql = "select distinct parent_category \
-           from venue v \
-             inner join user_venue uv on v.id = uv.venue_id \
-             inner join location l on l.id = v.location_id \
-           where uv.user_id=%s and city is not null" % (session['page_user_id'])
-    for key in session:
-        if key == 'country' or key == 'is_hidden':
-            if session[key] != '':
-                parent_category_sql = parent_category_sql + " and %s='%s' " % (key, session[key])
-    parent_category_sql = parent_category_sql + " order by parent_category asc"                
-    parent_categories = db.session.execute(parent_category_sql)
-
-
-    #User
-    page_user = User.query.filter_by(id = session['page_user_id']).first()
-
-
-    #Shareable url
-    session['share_url'] = "%s/profile/%s?" % (app.config['HOSTNAME'],session['username'])
-    for key in session:
-        if key == 'city' or key == 'country' or key == 'parent_category' or key == 'is_hidden' or key == 'zoom':
-            if session[key] != '':
-                session['share_url'] = session['share_url'] + "%s=%s&" % (key,session[key])
-    session['share_url'] = session['share_url'][:-1]
-
-
-
-    return render_template('index.html', venues=venues, pages=pages, pages_no_loc=pages_no_loc, \
-                            cities=cities, countries=countries, \
-                            parent_categories=parent_categories, user=page_user)
-    #return dumps(locations_json)
 
 
 def initialize_session_vars():

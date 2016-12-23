@@ -5,6 +5,7 @@ import shutil
 import sqlite3
 import requests
 import urllib
+import json
 from flask import Flask, g
 from flask_sqlalchemy import SQLAlchemy
 from flask_user import login_required, UserManager, UserMixin, SQLAlchemyAdapter
@@ -17,13 +18,15 @@ from sqlalchemy.orm import relationship
 #from resizeimage import resizeimage
 #import imghdr
 
-#from flaskext.mysql import MySQL
-#import MySQLdb
+from flaskext.mysql import MySQL
+import mysql
 
 #print "os environment: ", os.environ["NOMNOMTES_ENVIRONMENT"]
 
 print "Loading " + __file__
 db = SQLAlchemy(app)
+db.session.execute("SET NAMES utf8mb4;")
+
 
 
 #!!! combine the methods that parse the venue data from the api
@@ -182,9 +185,9 @@ class FoursquareVenues():
         r = requests.get(url)
         venues_json = r.json()
 
-        #print '-' * 20
-        #print venues_json['response']
-        #print '-' * 20
+        print '-' * 20
+        #print json.dumps(venues_json['response'], sort_keys=False, indent=4)
+        print '-' * 20
 
         #If no venues are returned, find venue on foursquare via lat long:
         if not venues_json or not len(venues_json['response']):
@@ -210,6 +213,7 @@ class FoursquareVenues():
 
                 v.foursquare_id = venue['id']
                 v.foursquare_url = 'https://foursquare.com/v/' + v.foursquare_id
+                v.foursquare_reviews = venue['stats']['tipCount']
                 v.name = venue['name']
                 v.latitude = venue['location']['lat']
                 v.longitude = venue['location']['lng']
@@ -281,6 +285,12 @@ class EmailInvite(db.Model):
 # ALTER TABLE user_image add column image_name varchar(100);
 # ALTER TABLE user_image add column image_large varchar(100);
 
+# ALTER TABLE user_image ALTER COLUMN image_original TYPE varchar(512);
+# ALTER TABLE user_image ALTER COLUMN image_large TYPE varchar(512);
+# ALTER TABLE user_image ALTER COLUMN image_thumb TYPE varchar(512);
+# ALTER TABLE user_image ALTER COLUMN image_type TYPE varchar(512);
+# ALTER TABLE user_image ALTER COLUMN image_name TYPE varchar(512);
+
 
 class UserImage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -288,11 +298,11 @@ class UserImage(db.Model):
 
     image_url = db.Column(db.String(512))
 
-    image_original = db.Column(db.String(100))
-    image_large = db.Column(db.String(100))
-    image_thumb = db.Column(db.String(100))
-    image_type = db.Column(db.String(10))
-    image_name = db.Column(db.String(100))
+    image_original = db.Column(db.String(512))
+    image_large = db.Column(db.String(512))
+    image_thumb = db.Column(db.String(512))
+    image_type = db.Column(db.String(512))
+    image_name = db.Column(db.String(512))
 
     page_id = db.Column(db.Integer, db.ForeignKey('page.id'), nullable=True)
     venue_id = db.Column(db.Integer, db.ForeignKey('venue.id'), nullable=True)
@@ -308,6 +318,9 @@ class UserImage(db.Model):
 
     def __init__(self, image_url, user_id):
         self.image_url = image_url
+        self.image_original = image_url
+        self.image_large = image_url
+        self.image_thumb = image_url
         self.user_id = user_id
         self.page_id = None
         self.venue_id = None
@@ -317,17 +330,17 @@ class UserImage(db.Model):
     def __repr__(self):
         return '<UserImage %r>' % self.id
 
-
+    """
     def save_locally(self):
         image_tmp_name = str(self.user_id) + 'tmp'
         image_tmp_dir = 'app/static/user/img/'
 
-        print "--- Getting image and saving to directory (%s) from url: \r\n %s" % (image_tmp_dir + image_tmp_name, self.image_url)
+        print "--- Getting image and saving to directory (%s) from url: \r\n %s" % (image_tmp_dir + image_tmp_name, self.image_original)
         image_tmp_full_path = os.path.join(image_tmp_dir, image_tmp_name) 
 
         try:   
             f = open(image_tmp_full_path,'wb')
-            f.write(urllib.urlopen(self.image_url).read())
+            f.write(urllib.urlopen(self.image_original).read())
             f.close()
 
             try: 
@@ -400,6 +413,7 @@ class UserImage(db.Model):
         except Exception as e:
             print "--- ERROR Could not save tmp image ", e.message, e.args
             print "Exception ", e.message, e.args
+    """
 
 
     def insert(self):
@@ -540,7 +554,7 @@ class PageNote(db.Model):
     added_dt  = db.Column(db.DateTime(timezone=True), server_default=func.now())
     updated_dt  = db.Column(db.DateTime(timezone=True), onupdate=func.now())
     UniqueConstraint('note', 'location_id', name='note_location_constraint')
-    __table_args__ = {'mysql_charset': 'utf8'}
+    __table_args__ = {'mysql_charset': 'utf8mb4'}
 
 
     def __init__(self, note, user_id):
@@ -590,7 +604,7 @@ class Note(db.Model):                                                           
     added_dt  = db.Column(db.DateTime(timezone=True), server_default=func.now())
     updated_dt  = db.Column(db.DateTime(timezone=True), onupdate=func.now())
     UniqueConstraint('note', 'venue_id', name='note_venue_constraint')
-    __table_args__ = {'mysql_charset': 'utf8'}
+    __table_args__ = {'mysql_charset': 'utf8mb4'}
 
 
     def __init__(self, user_id, note, source_url):
@@ -838,6 +852,7 @@ def connect_db():
     """Connects to the specific database."""
     rv = sqlite3.connect(app.config['DATABASE'])
     rv.row_factory = sqlite3.Row
+    print ">"*100
     return rv
 
 def init_db():  
@@ -848,7 +863,6 @@ def init_db():
 
 @app.cli.command('initdb')
 def initdb_command():
-    """ s the database tables."""
     init_db()
     print('Initialized the database.')
 
@@ -856,6 +870,7 @@ def get_db():
     """Opens a new database connection if there is none yet for the
     current application context.
     """
+
     if not hasattr(g, 'sqlite_db'):
         g.sqlite_db = connect_db()
     return g.sqlite_db

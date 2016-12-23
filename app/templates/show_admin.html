@@ -14,34 +14,31 @@
       <ul>
         <li> Create table: 
           {% for table in table_classes %}
-            <a href='/admin/api/createtable/{{ table }}'>{{ table }}</a>, 
+            <a href='/admin/api/v1/createtable/{{ table }}'>{{ table }}</a>, 
           {% endfor %}
         </li>
         <li> Drop table: 
           {% for table in table_classes %}
-            <a href='/admin/api/droptable/{{ table }}'>{{ table }}</a>, 
+            <a href='/admin/api/v1/droptable/{{ table }}'>{{ table }}</a>, 
           {% endfor %}
         </li>
         
         <li> Truncate table: 
           {% for table in table_names %}
-            <a href='/admin/api/truncatetable/{{ table }}'>{{ table }}</a>, 
+            <a href='/admin/api/v1/truncatetable/{{ table }}'>{{ table }}</a>, 
           {% endfor %}
         </li>
         
       </ul>
 
+    <!--
     <h2>Admin Pages</h2>
     <ul>
       <li>Views</li>
         <ul>
-          <li><a href=/notes>Notes</a>. Show all notes</li>
         </ul>
       <li>Database</li>
         <ul>
-          <li><a href=/createdb>Create Database</a>. Creates database on new instance</li>
-          <li><a href=/dropandcreatedb>Drop and Create Database</a>.</li> Enough said
-          <li><a href=/truncatedb>Truncate Database</a>. Doens't actually truncate--just deletes all values where id >=1 in each table</li>
           <v><a href=/updateparentcategory>Update Parent Categories</a>. Updates the parent category attribute on the location table based on existing categories</li>
         </ul>
       <li>API</li>
@@ -50,6 +47,7 @@
           <li><a href=/addnote>Add Note</a>. Adds a note via post, used via the chrome extension</li>
       </ul>
     </ul>
+    -->
 
   </body>
 
