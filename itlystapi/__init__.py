@@ -15,12 +15,12 @@ if('ITLYST_ENVIRONMENT' in os.environ):
             app.config[key] = value
             print key, value
     elif os.environ['ITLYST_ENVIRONMENT'] == 'local':
-        from app import settingslocal
-        from app import views
+        from itlystapi import settingslocal
+        from itlystapi import views
         from api import CityListAPI, VenueListAPI, PageListAPI
     elif os.environ['ITLYST_ENVIRONMENT'] == 'pythonanywhere':
-        from app import settingspa
-        import app.views
+        from itlystapi import settingspa
+        import itlystapi.views
         from api import CityListAPI, VenueListAPI, PageListAPI
 # ------------------------------------------------------------------------------------------
 

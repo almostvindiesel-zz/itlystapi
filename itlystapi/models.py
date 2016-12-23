@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 print "Loading " + __file__
 
-from app import app
+from itlystapi import app
 import os
 import shutil
 

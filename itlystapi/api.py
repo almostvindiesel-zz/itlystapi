@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 print "Loading " + __file__
 
-from app import app
+from itlystapi import app
 from flask_restful import Resource, Api
 
 import warnings
