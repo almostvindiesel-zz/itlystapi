@@ -43,9 +43,9 @@
                 </span>
                 
                 <span class=introbody>
-                  Highlight tips and pics from anywhere online—review sites,
-                  blogs, suggestions from friends—and itlyst organizes your notes
-                  to one place. 
+                  Highlight tips from anywhere online--such as reviews sites like yelp,
+                  food+travel blogs, or tips from friends on facebook—-and itlyst saves 
+                  your notes and pictures all to place. 
                 </span>
               </div>
               <div class="col-sm-6"></div>
@@ -57,7 +57,7 @@
                 <br>
                 <div id='emailform'>
                   <input type="text" id='emailinvite' class="emailinvite" placeholder="you@gmail.com" name='email'>
-                  <button type="submit" value="sign up" class="emailinvitebutton">sign up</button><br>
+                  <button type="submit" value="sign up" id='emailinvitebutton' class="emailinvitebutton">sign up</button><br>
                 </div>
               </div>
             </div>
@@ -179,26 +179,34 @@
             var email = $('#emailinvite').val();
 
             if (validateEmail(email)) {
-              var url = '/addemailinvite';
+              var url = '/api/v1/emailinvite';
               $.post(
                   url,
                   {email : email},
                   function(data, textStatus, jqXHR) {
                     //alert("added email: " + email);
-                    var html="<h4 class='invitesuccess'>Success! We'll notify you when It Lyst is generally available. Until then, check out some of the lysts below:</h4>";
+                    var html="<h4 class='invitesuccess'>Success! We'll notify you when itlyst becomes generally available ;-)</h4>";
                     $('#emailform').html(html);
                     $('#browselysts').hide(); 
 
-                    //window.location = "/";
-                    //alert(data);
-                    //completed_new_note = "<li>"+decodeURIComponent(data.note)+"<a class=deletesymbol href=/deletenote/id/"+data.note_id+"> x</a> </li>";
-                    //var input = $('#newnoteforvenueform' + venue_id.toString()).replaceWith(completed_new_note);
               });
             } 
         }
 
     });
 
+    document.getElementById('emailinvite').onkeydown = function(e){
+       if(e.keyCode == 13){
+        $( "#emailinvitebutton" ).trigger( "click" );
+       }
+    };
+
+
+
+
+
+    //Catch enter to submit
+   
     </script>
 
 

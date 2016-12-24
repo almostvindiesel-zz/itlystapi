@@ -1003,7 +1003,7 @@ def truncate_table(table):
 
     except Exception as e:
         print "Error ", e.message, e.args
-        msg = "ERROR. Could NOT drop table: %s" % (table)
+        msg = "ERROR. Could NOT truncate table: %s" % (table)
         
     return redirect(url_for('show_admin', msg = msg ))
 

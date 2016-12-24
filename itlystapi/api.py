@@ -543,11 +543,34 @@ class PageListAPI(Resource):
 
         return jsonify(pages=pages)
 
+class EmailInviteAPI(Resource):
+
+    def post(self):
+
+        #Get Parameters
+        try:
+            email = request.form.get('email','')
+        except Exception as e:
+            print "Could not get parameters: ", e.message
+            email = ''
+
+        #Write to Database
+        if email:
+            try:
+                e = EmailInvite(email);
+                e.insert()
+                print "Inserted ", email
+            except Exception as e:
+                print "Err ", e
+
+        return '', 204
+
 # --------------------------------------------- API Endpoints
-api.add_resource(TextAPI,      '/api/v1/text')
-api.add_resource(NoteAPI,      '/api/v1/note/<note_id>', '/api/v1/note')
-api.add_resource(ImageAPI,     '/api/v1/image/<image_id>', '/api/v1/image/')
-api.add_resource(VenueAPI,     '/api/v1/venue/<venue_id>', '/api/v1/venue/search')
-api.add_resource(VenueListAPI, '/api/v1/venues')
-api.add_resource(CityListAPI,  '/api/v1/cities')
-api.add_resource(PageListAPI,  '/api/v1/pages')
+api.add_resource(EmailInviteAPI,    '/api/v1/emailinvite')
+api.add_resource(TextAPI,           '/api/v1/text')
+api.add_resource(NoteAPI,           '/api/v1/note/<note_id>', '/api/v1/note')
+api.add_resource(ImageAPI,          '/api/v1/image/<image_id>', '/api/v1/image/')
+api.add_resource(VenueAPI,          '/api/v1/venue/<venue_id>', '/api/v1/venue/search')
+api.add_resource(VenueListAPI,      '/api/v1/venues')
+api.add_resource(CityListAPI,       '/api/v1/cities')
+api.add_resource(PageListAPI,       '/api/v1/pages')

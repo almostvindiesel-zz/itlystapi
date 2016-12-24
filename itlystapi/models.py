@@ -83,6 +83,13 @@ select l.*
 from location  l
   inner join (select latitude, longitude, count(*) from location group by 1,2 having count(*) > 1) dups 
   on (dups.latitude = l.latitude and dups.longitude = l.longitude) order by latitude asc
+
+  select id, count(*)
+  from location  l
+  group by 1 
+  having count(*) > 1
+  inner join (select latitude, longitude, count(*) from location group by 1,2 having count(*) > 1) dups 
+  on (dups.latitude = l.latitude and dups.longitude = l.longitude) order by latitude asc
 """
 
 class Location(db.Model):
