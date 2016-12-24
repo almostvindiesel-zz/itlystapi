@@ -74,6 +74,17 @@ class FoursquareVenue():
             print "Could not augment data from foursquare api: ", e.message, e.args
 
 #alter table location modify longitude Float(10,6)
+#
+
+#!!! Find duplicate locations. Dups are getting inserted--at some point I should build code into to prevent the
+# table from growing too large
+"""
+select l.*
+from location  l
+  inner join (select latitude, longitude, count(*) from location group by 1,2 having count(*) > 1) dups 
+  on (dups.latitude = l.latitude and dups.longitude = l.longitude) order by latitude asc
+"""
+
 class Location(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     ltype = db.Column(db.String(50))
@@ -103,7 +114,7 @@ class Location(db.Model):
     def __repr__(self):
         return '<Location %r>' % self.id
 
-    UniqueConstraint('latitude', 'longitude', name='lat_long_constraint')
+    #UniqueConstraint('latitude', 'longitude', name='lat_long_constraint')
 
     def insert(self):
         try:
