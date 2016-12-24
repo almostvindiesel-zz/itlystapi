@@ -37,7 +37,7 @@ input.emailinvite {
   color: black;
   padding: .5em .6em;
   border-radius:5px;
-  width: 250px;
+  width: 220px;
   font-size: 18px;
   height: 30px;
 
@@ -47,10 +47,10 @@ input.emailinvite {
   height: 30px;
   background-color: #0a2073;
   border: 3px  #0a2073;
-  width: 100px;
+  width: 120px !important;
   border-radius:5px;
   color:white;
-  font-size: 20px;
+  font-size: 18px;
 }
 
 .citylogo {
