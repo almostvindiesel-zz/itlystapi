@@ -89,6 +89,17 @@ class TextAPI(Resource):
     
 
 class ImageAPI(Resource):
+    def delete(self, image_id):
+        session['user_id'] = 2;
+        print "--- USER AUTHENTICATION: Set user id to 2 "
+
+        sql = 'delete from user_image where id = %s and user_id= %s ' % (image_id, session['user_id'])
+        print "delete image sql: ", sql
+        db.session.execute(sql)
+        db.session.commit()
+
+        return '', 204
+
 
     def put(self, image_id):
         session['user_id'] = 2;
@@ -97,7 +108,7 @@ class ImageAPI(Resource):
         #Get Parameters
 
         ui = UserImage.query.filter_by(id = image_id).first()
-        server_path = 'app/tmp/';
+        server_path = 'itlystapi/tmp/';
         s3_bucket = app.config['S3_BUCKET']
         thumbnail_width = 200
         large_width = 1024
@@ -338,7 +349,7 @@ class VenueListAPI(Resource):
         #Query Venues, apply filters
         venues_result_set = Venue.query.join(Location).join(UserVenue).outerjoin(UserImage).outerjoin(Note) \
                                 .filter(UserVenue.user_id == session['page_user_id']) \
-                                .order_by(UserVenue.user_rating.desc()) \
+                                .order_by(UserVenue.added_dt.desc()) \
 
         # If city is filtered, find the lat/long of the first item in that city and return all other 
         # locations within zoom miles from it
@@ -440,7 +451,8 @@ class VenueListAPI(Resource):
                  yelp_rating=str_to_float(row.yelp_rating),
                  yelp_url=row.yelp_url,
                  is_starred=row.user_venue.is_starred,
-                 user_rating=row.user_venue.user_rating
+                 user_rating=row.user_venue.user_rating,
+                 added_dt=row.added_dt
             )
 
             venues.append(item) 
@@ -453,6 +465,8 @@ class VenueListAPI(Resource):
             if format == 'js':
                 markers = dict({'markers':venues})
                 return make_response("gmapfeed(" + dumps(markers) + ");")
+
+
 
         return jsonify(venues=venues)
 
