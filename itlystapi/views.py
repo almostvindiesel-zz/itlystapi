@@ -449,7 +449,8 @@ def add_note():
                 session['user_id']
             )
             print "--- Initialized user image object with url: ", ui.image_url
-        elif request.form.get('note'):
+
+        if request.form.get('note'):
             n = Note(
                 user_id, 
                 request.form.get('note', ''), 
@@ -461,7 +462,7 @@ def add_note():
         #print "categories: "
         #print request.form['categories']
 
-        print "before requst.form"
+        #print "before requst.form"
         #categoriesStr = request.form['categories']
         try:
             categoriesStr = request.form.get('categories')
@@ -470,7 +471,6 @@ def add_note():
         except Exception as e:
             print "Could not get categories: ", e.message, e.args
             categories = []
-
 
         
         l.address1 = None #!!!
@@ -500,8 +500,14 @@ def add_note():
         elif source == 'tripadvisor' or source == 'yelp':
 
             #Set source specific properties:
-            setattr(v, source + "_rating", request.form.get('rating', None))
-            setattr(v, source + "_reviews", request.form.get('reviews', None))
+            if request.form.get('rating'):
+                setattr(v, source + "_rating", request.form.get('rating', None))
+            else:
+                print "No readable rating. Not inserting rating"
+            if request.form.get('reviews'):
+                setattr(v, source + "_reviews", request.form.get('reviews', None))
+            else:
+                print "No readable reviews. Not inserting reviews"
             setattr(v, source + "_url", source_url)
             setattr(v, source + "_id", source_id)
 
@@ -577,21 +583,36 @@ def add_note():
                 uv.insert()
 
             #Insert Note or Image:
-            if n:
+            if n and ui:
+                print "About to insert both an image and note"
+
+                # !!! this is duplicative.... should create functions instead of just blindly copying and pasting
+                print "--- Checking to see if identical venue note exists in database. If not, insert it"
+                n.venue_id = uv.venue_id
+                n.find()
+                if not n.id:
+                    n.insert()
+
+                print "--- Checking to see if user image exists. If not, insert it"
+                ui.venue_id = uv.venue_id
+                ui.find()
+                if not ui.id:
+                    ui.insert()
+
+                response = jsonify(user_image_id = ui.id, note_id = n.id, venue_id = uv.venue_id, image_original = ui.image_original, note = n.note,  msg = "Inserted image and note" )
+            elif n:
                 print "--- Checking to see if identical venue note exists in database. If not, insert it"
                 n.venue_id = uv.venue_id
                 n.find()
                 if not n.id:
                     n.insert()
                 response = jsonify(note_id = n.id, venue_id = uv.venue_id, note = n.note, msg = "Inserted note: %s" % n.note )
-
             elif ui:
                 print "--- Checking to see if user image exists. If not, insert it"
                 ui.venue_id = uv.venue_id
                 ui.find()
                 if not ui.id:
                     ui.insert()
-                    #ui.save_locally()
                 response = jsonify(user_image_id = ui.id, venue_id = uv.venue_id, image_original = ui.image_original, msg = "Inserted image: %s" % ui.image_url )
             else:
                 print "No note or image. Returning data..."
@@ -618,7 +639,20 @@ def add_note():
 
             #Insert Note or Image:
             #!!! Identical to above...
-            if n:
+            if n and ui:
+                print "About to insert both an image and note"
+                n.venue_id = uv.venue_id
+                n.find()
+                if not n.id:
+                    n.insert()
+
+                ui.venue_id = uv.venue_id
+                ui.find()
+                if not ui.id:
+                    ui.insert()
+                response = jsonify(user_image_id = ui.id, venue_id = uv.venue_id, image_url = ui.image_url, note = n.note, msg = "Inserted image and note")
+
+            elif n:
                 print "--- Checking to see if identical page note exists in database. If not, insert it"
                 n.venue_id = uv.venue_id
                 n.find()
@@ -632,7 +666,6 @@ def add_note():
                 ui.find()
                 if not ui.id:
                     ui.insert()
-                    #ui.save_locally()
                 response = jsonify(user_image_id = ui.id, venue_id = uv.venue_id, image_url = ui.image_url, msg = "Inserted image: %s" % ui.image_url )
             else:
                 response = jsonify(venue_id = uv.venue_id, msg = "...")

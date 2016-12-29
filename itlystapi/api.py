@@ -79,6 +79,8 @@ class TextAPI(Resource):
 
         print "-" * 50
 
+
+
         #Remove Duplicates
         npps_deduped = list()
         map(lambda x: not x in npps_deduped and npps_deduped.append(x), npps)

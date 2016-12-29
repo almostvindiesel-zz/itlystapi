@@ -705,7 +705,7 @@ class UserVenue(db.Model):
             db.session.commit()
             print "--- inserted uservenue id: %s, venue_id: %s user: %s" % (self.id, self.venue_id, self.user_id)
         except Exception as e:
-            print "Could not insert user venue venue: ", self.id, e.message, e.args
+            print "Could not insert user venue: ", self.id, e.message, e.args
 
 # ALTER TABLE venue add column is_hidden boolean default false after source_title
 # ALTER TABLE venue add column is_starred boolean default false after source_title
