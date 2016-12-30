@@ -744,6 +744,10 @@ class NewNoteAPI(Resource):
                     response_json.get('image_url'),
                     session['user_id']
                 )
+                #Set original image to other image locations until s3 resizes
+                ui.image_original = ui.image_url
+                ui.image_large = ui.image_url
+                ui.image_thumb = ui.image_url
                 print "--- Initialized user image object with url: ", ui.image_url
 
             if response_json.get('note'):
@@ -980,6 +984,11 @@ class NewNoteAPI(Resource):
                     response_json.get('image_url'),
                     session['user_id']
                 )
+                #Set original image to other image locations until s3 resizes
+                ui.image_original = ui.image_url
+                ui.image_large = ui.image_url
+                ui.image_thumb = ui.image_url
+
             elif response_json.get('note'):
                 pn = PageNote(
                     urllib.unquote(response_json.get('note', '')), 
