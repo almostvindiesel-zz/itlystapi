@@ -67,6 +67,12 @@ def requires_auth(f):
 def validate_login():
     return jsonify(login_status=True)
 
+@app.route('/login')
+@login_required 
+def login():
+    redirect("/user/sign-in", code=302)
+
+
 # --------------------------------------------- API Resources
 
 class TextAPI(Resource):
