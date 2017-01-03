@@ -47,10 +47,11 @@ def requires_auth(f):
     def decorated(*args, **kwargs):
         print "-"*75
         print "Checking authorization...."
-        print "request: "
-        print request
-        print "headers: "
-        print request.headers
+        #print "request: "
+        #print request
+        #print "headers: "
+        #print request.headers
+        
         #print "params: "
         #print request.params
 
@@ -506,12 +507,15 @@ class VenueListAPI(Resource):
                  foursquare_reviews=row.foursquare_reviews,
                  foursquare_rating=str_to_float(row.foursquare_rating), 
                  foursquare_url=row.foursquare_url,
+                 foursquare_id=row.foursquare_id,
                  tripadvisor_reviews=row.tripadvisor_reviews,
                  tripadvisor_rating=str_to_float(row.tripadvisor_rating),
                  tripadvisor_url=row.tripadvisor_url,
+                 tripadvisor_id=row.tripadvisor_id,
                  yelp_reviews=row.yelp_reviews,
                  yelp_rating=str_to_float(row.yelp_rating),
                  yelp_url=row.yelp_url,
+                 yelp_id=row.yelp_id,
                  is_starred=row.user_venue.is_starred,
                  user_rating=row.user_venue.user_rating,
                  added_dt=row.added_dt
