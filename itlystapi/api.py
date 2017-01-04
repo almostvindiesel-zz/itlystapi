@@ -903,21 +903,25 @@ class NewNoteAPI(Resource):
                     if not ui.id:
                         ui.insert()
 
-                    response = jsonify(user_image_id = ui.id, note_id = n.id, venue_id = uv.venue_id, image_original = ui.image_original, note = n.note,  msg = "Inserted image and note" )
+                    response = jsonify(user_image_id = ui.id, note_id = n.id, venue_id = uv.venue_id, \
+                                       image_original = ui.image_original, note = n.note, venue_name = v.name, \
+                                       msg = "Inserted image and note" )
                 elif n:
                     print "--- Checking to see if identical venue note exists in database. If not, insert it"
                     n.venue_id = uv.venue_id
                     n.find()
                     if not n.id:
                         n.insert()
-                    response = jsonify(note_id = n.id, venue_id = uv.venue_id, note = n.note, msg = "Inserted note: %s" % n.note )
+                    response = jsonify(note_id = n.id, venue_id = uv.venue_id, venue_name = v.name, \
+                                       note = n.note, msg = "Inserted note: %s" % n.note )
                 elif ui:
                     print "--- Checking to see if user image exists. If not, insert it"
                     ui.venue_id = uv.venue_id
                     ui.find()
                     if not ui.id:
                         ui.insert()
-                    response = jsonify(user_image_id = ui.id, venue_id = uv.venue_id, image_original = ui.image_original, msg = "Inserted image: %s" % ui.image_url )
+                    response = jsonify(user_image_id = ui.id, venue_id = uv.venue_id, venue_name = v.name, \
+                                       image_original = ui.image_original, msg = "Inserted image: %s" % ui.image_url )
                 else:
                     print "No note or image. Returning data..."
                     response = jsonify(venue_id = uv.venue_id, msg = "...")
