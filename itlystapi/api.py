@@ -468,10 +468,11 @@ class VenueListAPI(Resource):
                     note_source = 'tripadvisor'
                 elif note_row.source_url.find('yelp') >= 0:
                     note_source = 'yelp'
-                elif note_row.source_url.find('foursquare') >= 0:
+                elif note_row.source_url.find('foursquare') >= 0 or note_row.source_url.find('4sq.com') >= 0:
                     note_source = 'foursquare'
                 else:
                     note_source = 'other'
+
 
                 item = dict(
                     note = note_row.note,
