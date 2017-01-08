@@ -73,6 +73,20 @@ def validate_login():
 def login():
     redirect("/user/sign-in", code=302)
 
+@app.route('/register')
+@app.route('/signup')
+def register():
+    redirect("/user/register", code=302)
+
+@app.route('/post_registration')
+def post_registration():
+    return render_template('registration_success.html')
+
+@app.route('/post_email_confiration')
+def post_email_confiration():
+    return render_template('email_confirmation_success.html')
+
+
 
 # --------------------------------------------- API Resources
 
