@@ -34,7 +34,7 @@ def check_auth(email, password):
 
 def authenticate():
     """Sends a 401 response that enables basic auth"""
-    return jsonify(login_status=False)
+    return jsonify(login_status=False, user_id=None)
     """
     return Response(
     'Could not verify your access level for that URL.\n'
@@ -66,7 +66,13 @@ def requires_auth(f):
 @app.route('/api/v1/login')
 @requires_auth
 def validate_login():
-    return jsonify(login_status=True)
+
+    #Get user id and return to the application
+    auth = request.authorization
+    email = auth.username
+    user_id =  User.query.filter_by(email = email).first().id
+
+    return jsonify(login_status=True, user_id=user_id)
 
 @app.route('/login')
 @login_required 
@@ -97,9 +103,11 @@ class TextAPI(Resource):
         try:
             json = jsonurl.parse_query(request.data)
             text = json['text']
+            user_id = json['user_id']
         except Exception as e:
             print "Could not get parameters: ", e.message
             text = ''
+            user_id = ''
 
         """
         text = "5 Gjusta \n Is there a better day-time eatery than Gjusta at the moment? Except for the paucity of seating, the fare coming out of the massive kitchen and ovens is impressive from beginning to end, starting with the pastries, breads, and sweets. The smoked fish is some of the best in town while the breakfast offers everything from pork sausage and eggs to flatbread pizzas. For lunch, try a prime rib, porchetta, or banh mi sandwich, which comes loaded with house-made pate."
@@ -161,22 +169,36 @@ class ImageAPI(Resource):
 
     @requires_auth
     def delete(self, image_id):
-        session['user_id'] = 2;
-        print "--- USER AUTHENTICATION: Set user id to 2 "
+        #print "--- USER AUTHENTICATION: Set user id to 2 "
+        #session['user_id'] = 2;
+        #user_id = session['user_id']
 
-        sql = 'delete from user_image where id = %s and user_id= %s ' % (image_id, session['user_id'])
+        #Get Parameters
+        try:
+            json = jsonurl.parse_query(request.data)
+            user_id = json['user_id']
+        except Exception as e:
+            print "Could not get parameters: ", e.message
+            user_id = ''
+
+        
+
+        sql = 'delete from user_image where id = %s and user_id= %s ' % (image_id, user_id)
         print "delete image sql: ", sql
         db.session.execute(sql)
         db.session.commit()
 
         return '', 204
 
-
+    @requires_auth
     def put(self, image_id):
-        session['user_id'] = 2;
-        print "--- USER AUTHENTICATION: Set user id to 2"
+        #print "--- USER AUTHENTICATION: Set user id to 2 "
+        #session['user_id'] = 2;
+        #user_id = session['user_id']
 
-        #Get Parameters
+
+
+        
 
         ui = UserImage.query.filter_by(id = image_id).first()
         server_path = 'itlystapi/tmp/';
@@ -257,10 +279,19 @@ class NoteAPI(Resource):
 
     @requires_auth
     def delete(self, note_id):
-        session['user_id'] = 2;
-        print "--- USER AUTHENTICATION: Set user id to 2 "
+        #session['user_id'] = 2;
+        #user_id = session['user_id']
+        #print "--- USER AUTHENTICATION: Set user id to 2 "
 
-        sql = 'delete from note where id = %s and user_id= %s ' % (note_id, session['user_id'])
+        #Get Parameters
+        try:
+            json = jsonurl.parse_query(request.data)
+            user_id = json['user_id']
+        except Exception as e:
+            print "Could not get parameters: ", e.message
+            user_id = ''
+
+        sql = 'delete from note where id = %s and user_id= %s ' % (note_id, user_id)
         print "delete note sql: ", sql
         db.session.execute(sql)
         db.session.commit()
@@ -269,24 +300,27 @@ class NoteAPI(Resource):
 
     @requires_auth
     def post(self):
-        session['user_id'] = 2;
-        print "--- USER AUTHENTICATION: Set user id to 2"
+        #session['user_id'] = 2;
+        #user_id = session['user_id']
+        #print "--- USER AUTHENTICATION: Set user id to 2 "
 
         #Get Parameters
         try:
             json = jsonurl.parse_query(request.data)
             venue_id = json['venue_id']
             note = json['note']
+            user_id = json['user_id']
         except Exception as e:
             print "Could not get parameters: ", e.message
             note = ''
             venue_id = ''
+            user_id = ''
 
         #Write to Database
         if venue_id and note:
             try:
                 n = Note(
-                    session['user_id'], 
+                    user_id, 
                     note, 
                     'http://itlyst.com'
                 )
@@ -300,24 +334,30 @@ class NoteAPI(Resource):
 
     @requires_auth
     def put(self, note_id):
-        session['user_id'] = 2;
-        print "--- USER AUTHENTICATION: Set user id to 2"
 
         #Get Parameters
         try:
             json = jsonurl.parse_query(request.data)
+            print '~' * 50
+            print json
             note = json['note']
+            user_id = json['user_id']
         except Exception as e:
             print "Could not get note parameter: ", e.message
             note = ''
+            user_id = ''
 
         #Write Parameters
+        print "Updating note..."
+        print "--- note: ", note
+        print "--- user_id: ", user_id
+
         if note:
             try:
                 sql = text('update note set note = :note where id = :note_id and user_id = :user_id')
-                sql = sql.bindparams(note = note, note_id = note_id, user_id = session['user_id'])
+                sql = sql.bindparams(note = note, note_id = note_id, user_id = user_id)
                 print "sql: ", sql
-                print "params: \r\n-user_id: %s  \r\n-note_id: %s \r\n-note: %s" % (session['user_id'], note_id, note)
+                print "params: \r\n-user_id: %s  \r\n-note_id: %s \r\n-note: %s" % (user_id, note_id, note)
                 db.session.execute(sql)
                 db.session.commit()
             except Exception as e:
@@ -329,21 +369,31 @@ class VenueAPI(Resource):
 
     @requires_auth
     def delete(self, venue_id):
+        #session['user_id'] = 2;
+        #user_id = session['user_id']
+        #print "--- USER AUTHENTICATION: Set user id to 2 "
 
-        session['user_id'] = 2;
-        print "--- USER AUTHENTICATION: Set user id to 2 "
+        #Get Parameters
+        print "About to delete venue..."
+        try:
+            json = jsonurl.parse_query(request.data)
+            user_id = json['user_id']
+        except Exception as e:
+            print "Could not get note parameter: ", e.message
+            user_id = ''
 
-        sql = 'delete from user_venue where venue_id = %s and user_id= %s ' % (venue_id, session['user_id'])
+
+        sql = 'delete from user_venue where venue_id = %s and user_id= %s ' % (venue_id, user_id)
         print "delete user_venue sql: ", sql
         db.session.execute(sql)
         db.session.commit()
 
-        sql = 'delete from note where venue_id = %s and user_id= %s ' % (venue_id, session['user_id'])
+        sql = 'delete from note where venue_id = %s and user_id= %s ' % (venue_id, user_id)
         print "delete note sql: ", sql
         db.session.execute(sql)
         db.session.commit()
 
-        sql = 'delete from user_image where venue_id = %s and user_id= %s ' % (venue_id, session['user_id'])
+        sql = 'delete from user_image where venue_id = %s and user_id= %s ' % (venue_id, user_id)
         print "delete user_image sql: ", sql
         db.session.execute(sql)
         db.session.commit()
@@ -357,8 +407,9 @@ class VenueAPI(Resource):
 
     #Searches foursquare for a venue 
     def post(self):
-        session['user_id'] = 2;
-        print "--- USER AUTHENTICATION: Set user id to 2"
+        #session['user_id'] = 2;
+        #user_id = session['user_id']
+        #print "--- USER AUTHENTICATION: Set user id to 2 "
 
         #Get Parameters
         try:
@@ -422,6 +473,10 @@ class VenueListAPI(Resource):
     def get(self):
 
         initialize_session_vars()
+
+
+
+        print "--- session['page_user_id']: ", session['page_user_id']
 
         #Query Venues, apply filters
         venues_result_set = Venue.query.join(Location).join(UserVenue).outerjoin(UserImage).outerjoin(Note) \
@@ -547,13 +602,22 @@ class VenueListAPI(Resource):
                 markers = dict({'markers':venues})
                 return make_response("gmapfeed(" + dumps(markers) + ");")
 
-
+        print "--- total venues: ", len(venues)
 
         return jsonify(venues=venues)
 
 class PageListAPI(Resource):
     def get(self):
+
+        #Convert form inputs into session variables
         initialize_session_vars()
+
+        try:
+            json = jsonurl.parse_query(request.data)
+            session['page_user_id'] = json['user_id']
+        except Exception as e:
+            print "Could not get parameters: ", e.message
+            session['page_user_id'] = ''
 
         #Query Venues, apply filters
         #!!! Move to model
@@ -670,6 +734,10 @@ class NewNoteAPI(Resource):
     @requires_auth
     def post(self):
 
+        #session['user_id'] = 2;
+        #user_id = session['user_id']
+        #print "--- USER AUTHENTICATION: Set user id to 2 "
+
         """ 
         When an end user highlights a selection and saves to itlyst when not on a review page from tripadvisor, foursquare, or yelp,
         this part of the code is executed. Next step will be to save the highlight to the following:
@@ -678,8 +746,14 @@ class NewNoteAPI(Resource):
         - page      (if the page has not been saved before by any user)
         - location  (if the page has not been saved before by any user, we'll try to find the city or country that the page refers to)
         """
-        session['user_id'] = 2;
-        print "--- USER AUTHENTICATION: Set user id to 2 "
+
+
+        try:
+            json = jsonurl.parse_query(request.data)
+            user_id = json['user_id']
+        except Exception as e:
+            print "Could not get parameters: ", e.message
+            user_id = ''
 
         print '=' * 80
 
@@ -706,7 +780,7 @@ class NewNoteAPI(Resource):
 
             pn = PageNote(
                 urllib.unquote(response_json.get.get('note', None)), 
-                session['user_id'], 
+                user_id, 
             )
             pn.source = 'nomnotes'
             pn.page_id = response_json.get.get('page_id', None)
@@ -718,7 +792,7 @@ class NewNoteAPI(Resource):
         elif action == 'new_venue_note_from_home':
 
             n = Note(
-                session['user_id'], 
+                user_id, 
                 urllib.unquote(response_json.get.get('note', None)), 
                 'http://nomnotes'
             )
@@ -735,7 +809,6 @@ class NewNoteAPI(Resource):
             # ---------------------------------------------------------
             print "--- Processing parameters from the addnote/ post request for venue:"
 
-            user_id = session['user_id']
             source_url = response_json.get('page_url', None)
             source_id = response_json.get('source_id', None)
             source = response_json.get('source', None)
@@ -761,7 +834,7 @@ class NewNoteAPI(Resource):
             if response_json.get('image_url'):
                 ui = UserImage(
                     response_json.get('image_url'),
-                    session['user_id']
+                    user_id
                 )
                 #Set original image to other image locations until s3 resizes
                 ui.image_original = ui.image_url
@@ -1005,7 +1078,7 @@ class NewNoteAPI(Resource):
             if response_json.get('image_url'):
                 ui = UserImage(
                     response_json.get('image_url'),
-                    session['user_id']
+                    user_id
                 )
                 #Set original image to other image locations until s3 resizes
                 ui.image_original = ui.image_url
@@ -1015,7 +1088,7 @@ class NewNoteAPI(Resource):
             elif response_json.get('note'):
                 pn = PageNote(
                     urllib.unquote(response_json.get('note', '')), 
-                    session['user_id']
+                    user_id
                 )
                 
             p = Page(
@@ -1080,7 +1153,7 @@ class NewNoteAPI(Resource):
                     pn.insert()
 
                 print "--- Checking if user_page mapping exists in database. If not, insert it"
-                up = UserPage(session['user_id'], pn.page_id)
+                up = UserPage(user_id, pn.page_id)
                 up.find()
                 if not up.id:
                     up.insert()
@@ -1156,10 +1229,6 @@ def initialize_session_vars():
     #Necessary?
     app.secret_key = app.config['APP_SECRET_KEY']
 
-    #!!! hardcoded for simplier api access
-    session['user_id'] = 2;
-    session['username'] = 'almostvindiesel';
-
 
     if request.args.get('zoom'):
         session['zoom'] = request.args.get('zoom')
@@ -1191,15 +1260,17 @@ def initialize_session_vars():
 
     #!!! Controls whether a user can edit a page based on whether they are logged inner
     #!!! This is probably not the right way to do this...
+    #!!! can edits may no longer be necesary
+    if request.args.get('user_id'):
+        session['user_id'] = request.args.get('user_id')
     if 'user_id' in session:
+        session['page_user_id'] = session['user_id']
         if not 'username' in session:
-            u = User.query.filter_by(user_id = session['user_id']).first()
+            u = User.query.filter_by(id = session['user_id']).first()
             session['username'] = u.username
             session['can_edit'] = 1
-            session['page_user_id'] = session['user_id']
         else: 
             u = User.query.filter_by(username = session['username']).first()
-            session['page_user_id'] = session['user_id']
             if u.id == int(session['user_id']):
                 session['can_edit'] = 1
             else:
