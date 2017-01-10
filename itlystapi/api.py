@@ -482,6 +482,7 @@ class VenueListAPI(Resource):
         venues_result_set = Venue.query.join(Location).join(UserVenue).outerjoin(UserImage).outerjoin(Note) \
                                 .filter(UserVenue.user_id == session['page_user_id']) \
                                 .filter(UserImage.user_id == session['page_user_id']) \
+                                .filter(Note.user_id == session['page_user_id']) \
                                 .order_by(UserVenue.added_dt.desc()) \
 
         # If city is filtered, find the lat/long of the first item in that city and return all other 
