@@ -623,6 +623,7 @@ class PageListAPI(Resource):
         #!!! Move to model
         page_notes_result_set = Page.query.join(Location).join(UserPage).outerjoin(UserImage).outerjoin(PageNote) \
                                 .filter(PageNote.user_id == session['page_user_id']) \
+                                .filter(UserImage.user_id == session['page_user_id']) \
                                 .order_by(UserPage.is_starred.desc(),Page.id.asc())
 
         # If city is filtered, find the lat/long of the first item in that city and return all other 
