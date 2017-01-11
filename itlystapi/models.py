@@ -13,7 +13,7 @@ import json
 from flask import Flask, g
 from flask_sqlalchemy import SQLAlchemy
 from flask_user import login_required, UserManager, UserMixin, SQLAlchemyAdapter
-from sqlalchemy.sql import func
+from sqlalchemy.sql import func, and_
 from sqlalchemy import UniqueConstraint, distinct, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import relationship

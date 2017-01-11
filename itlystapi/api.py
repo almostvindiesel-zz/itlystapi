@@ -477,13 +477,22 @@ class VenueListAPI(Resource):
 
 
         print "--- session['page_user_id']: ", session['page_user_id']
+        print "--- session['page_user_id'] type: ", type(session['page_user_id'])
 
         #Query Venues, apply filters
-        venues_result_set = Venue.query.join(Location).join(UserVenue).outerjoin(UserImage).outerjoin(Note) \
-                                .filter(UserVenue.user_id == session['page_user_id']) \
-                                .filter(UserImage.user_id == session['page_user_id']) \
-                                .filter(Note.user_id == session['page_user_id']) \
+        #                                #.filter() \ #.join(UserVenue, UserVenue.user_id == session['page_user_id']) \
+        venues_result_set = Venue.query \
+                                .join(Location) \
+                                .join(UserVenue,      and_(Venue.id == UserVenue.venue_id, UserVenue.user_id == session['page_user_id']) ) \
+                                .outerjoin(Note,      and_(UserVenue.venue_id == Note.venue_id, Note.user_id == session['page_user_id']) ) \
+                                .outerjoin(UserImage, and_(UserVenue.venue_id == UserImage.venue_id, UserImage.user_id == session['page_user_id']) ) \
                                 .order_by(UserVenue.added_dt.desc()) \
+                                .filter(UserVenue.user_id == session['page_user_id'])
+
+        print "--- Get Venue SQL before Location Filter: \r\n", 
+        print str(venues_result_set.statement.compile(dialect=postgresql.dialect()))
+
+        print venues_result_set
 
         # If city is filtered, find the lat/long of the first item in that city and return all other 
         # locations within zoom miles from it
@@ -525,43 +534,51 @@ class VenueListAPI(Resource):
         #print '-'*50
         venues_result_set = venues_result_set.limit(300)
 
-        print "--- Get Venue SQL: \r\n", 
-        print str(venues_result_set.statement.compile(dialect=postgresql.dialect()))
+
 
         venues =[]
         for row in venues_result_set:
 
             notes_array = []
             for note_row in row.notes:
+                #!!! I shouldn't have to apply a limit here, but if I don't, extra other users' notes are added. not sure why
+                #!!! they escape the first sql statement yet
+                #print "session['page_user_id']: ", session['page_user_id']
+                #print "inote_row.user_id: ", note_row.user_id
+                if note_row.user_id  == session['page_user_id']:
+                    #!!! Add source back to model
+                    if note_row.source_url.find('tripadvisor') >= 0:
+                        note_source = 'tripadvisor'
+                    elif note_row.source_url.find('yelp') >= 0:
+                        note_source = 'yelp'
+                    elif note_row.source_url.find('foursquare') >= 0 or note_row.source_url.find('4sq.com') >= 0:
+                        note_source = 'foursquare'
+                    else:
+                        note_source = 'other'
 
-                #!!! Add source back to model
-                if note_row.source_url.find('tripadvisor') >= 0:
-                    note_source = 'tripadvisor'
-                elif note_row.source_url.find('yelp') >= 0:
-                    note_source = 'yelp'
-                elif note_row.source_url.find('foursquare') >= 0 or note_row.source_url.find('4sq.com') >= 0:
-                    note_source = 'foursquare'
-                else:
-                    note_source = 'other'
 
+                    item = dict(
+                        note = note_row.note,
+                        id = note_row.id,
+                        source = note_source
+                        )
+                    notes_array.append(item)
 
-                item = dict(
-                    note = note_row.note,
-                    id = note_row.id,
-                    source = note_source
-                    )
-                notes_array.append(item)
             images_array = []
-
             for img_row in row.images: 
-               #print "image_large" + str(img_row.id) 
-                item = dict(
-                    image_url = img_row.image_url,
-                    image_large = img_row.image_large.replace('app',''),
-                    image_thumb = img_row.image_thumb.replace('app',''),
-                    id = img_row.id
-                    )
-                images_array.append(item)
+                #!!! I shouldn't have to apply a limit here, but if I don't, extra other users' notes are added. not sure why
+                #!!! they escape the first sql statement yet
+                #print "session['page_user_id']: ", session['page_user_id']
+                #print "img_row.user_id: ", img_row.user_id
+                if img_row.user_id  == session['page_user_id']:
+                   #print "image_large" + str(img_row.id) 
+                    item = dict(
+                        image_url = img_row.image_url,
+                        image_large = img_row.image_large.replace('app',''),
+                        image_thumb = img_row.image_thumb.replace('app',''),
+                        id = img_row.id
+                        )
+                    images_array.append(item)
             #!!! convert rating from string to float
             item = dict(
                  notes=notes_array, 
@@ -1265,9 +1282,9 @@ def initialize_session_vars():
     #!!! This is probably not the right way to do this...
     #!!! can edits may no longer be necesary
     if request.args.get('user_id'):
-        session['user_id'] = request.args.get('user_id')
+        session['user_id'] = int(request.args.get('user_id'))
     if 'user_id' in session:
-        session['page_user_id'] = session['user_id']
+        session['page_user_id'] = int(session['user_id'])
         if not 'username' in session:
             u = User.query.filter_by(id = session['user_id']).first()
             session['username'] = u.username
