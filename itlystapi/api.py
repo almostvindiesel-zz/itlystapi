@@ -34,7 +34,7 @@ def check_auth(email, password):
 
 def authenticate():
     """Sends a 401 response that enables basic auth"""
-    return jsonify(login_status=False, user_id=None)
+    return jsonify(login_status=False, user_id=None, has_completed_mobile_ftue=None)
     """
     return Response(
     'Could not verify your access level for that URL.\n'
@@ -70,9 +70,11 @@ def validate_login():
     #Get user id and return to the application
     auth = request.authorization
     email = auth.username
-    user_id =  User.query.filter_by(email = email).first().id
+    u = User.query.filter_by(email = email).first()
+    user_id = u.id
+    has_completed_mobile_ftue = u.hasCompletedMobileFtue
 
-    return jsonify(login_status=True, user_id=user_id)
+    return jsonify(login_status=True, user_id=user_id, has_completed_mobile_ftue=has_completed_mobile_ftue)
 
 @app.route('/login')
 @login_required 
@@ -275,6 +277,35 @@ def resize_image(path, image_filename, image_filename_new, new_width):
         print "->Could not resize image since it would require enlarging it. Referencing original path\r\n", e.message, e.args
         return image_filename
 
+class UserAPI(Resource):
+
+    @requires_auth
+    def post(self):
+
+        #Get Parameters
+        try:
+            print '~'*50
+            json = jsonurl.parse_query(request.data)
+
+            print json
+            user_id = json['user_id']
+            has_completed_mobile_ftue = json['has_completed_mobile_ftue']
+        except Exception as e:
+            print "Could not get parameters: ", e.message
+            has_completed_mobile_ftue = ''
+            venue_id = ''
+            user_id = ''
+
+
+        print "has_completed_mobile_ftue: ", has_completed_mobile_ftue
+
+        sql = 'update user set has_completed_mobile_ftue = %s where id= %s ' % (has_completed_mobile_ftue, user_id)
+        print "update user sql: ", sql
+        db.session.execute(sql)
+        db.session.commit()
+
+        return '', 204
+
 class NoteAPI(Resource):
 
     @requires_auth
@@ -398,10 +429,11 @@ class VenueAPI(Resource):
         db.session.execute(sql)
         db.session.commit()
 
-        sql = 'delete from venue where id = %s ' % (venue_id)
-        print "delete venue sql: ", sql
-        db.session.execute(sql)
-        db.session.commit()
+
+        #sql = 'delete from venue where id = %s ' % (venue_id)
+        #print "delete venue sql: ", sql
+        #db.session.execute(sql)
+        #db.session.commit()
 
         return '', 204
 
@@ -1356,6 +1388,7 @@ def str_to_float(str):
 api.add_resource(NewNoteAPI,        '/addnote')
 
 api.add_resource(EmailInviteAPI,    '/api/v1/emailinvite')
+api.add_resource(UserAPI,           '/api/v1/user')
 api.add_resource(TextAPI,           '/api/v1/text')
 api.add_resource(NoteAPI,           '/api/v1/note/<note_id>', '/api/v1/note')
 api.add_resource(ImageAPI,          '/api/v1/image/<image_id>', '/api/v1/image/')

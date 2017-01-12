@@ -256,6 +256,8 @@ class Zdummy(db.Model, UserMixin):
     def __repr__(self):
         return '<Zdummy %r>' % self.id
 
+# ALTER TABLE user add column has_completed_mobile_ftue tinyint(1) after is_active
+# update user set has_completed_mobile_ftue=0;
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
 
@@ -270,6 +272,7 @@ class User(db.Model, UserMixin):
 
     # User information
     active = db.Column('is_active', db.Boolean(), nullable=False, server_default='0')
+    hasCompletedMobileFtue = db.Column('has_completed_mobile_ftue', db.Boolean(), nullable=False, server_default='0')
     first_name = db.Column(db.String(100), nullable=False, server_default='')
     last_name = db.Column(db.String(100), nullable=False, server_default='')
     __table_args__ = {'mysql_charset': 'utf8'}
