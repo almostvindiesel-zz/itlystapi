@@ -462,8 +462,9 @@ class VenueAPI(Resource):
                 for venue in fsvs.venues:
                     venues.append(dict(
                             name=venue.name,
+                            display_name=venue.display_name,
+                            id = venue.foursquare_id,
                             foursquare_reviews=venue.foursquare_reviews,
-                            foursquare_rating=venue.foursquare_reviews,
                             foursquare_url=venue.foursquare_url
                             ))
                 
@@ -471,9 +472,49 @@ class VenueAPI(Resource):
                 print "Err ", e
                 
         #!!! Returning first two foursquare results per search 
-        return jsonify(venues=venues[:1])
+        return jsonify(venues=venues[:8])
+
+
+class UserCityAPI(Resource):
+
+    @requires_auth
+    def get(self, num_cities):
+
+        initialize_session_vars()
+
+        if num_cities > 0:
+            sql = "select distinct city from ( \
+                    select l.city, max(uv.added_dt) added_dt\
+                    from user_venue uv \
+                      inner join venue v on uv.venue_id = v.id \
+                      inner join location l on l.id = v.location_id \
+                    where uv.user_id = %s \
+                     and city is not null \
+                    group by 1 \
+                    order by 2 desc \
+                ) i limit %s" % (session['user_id'], num_cities)
+
+            print '-'*50
+            print sql
+            print '-'*50
+
+            cities_result_set = db.session.execute(sql)
+
+            recently_added_cities = []
+            for row in cities_result_set:
+                city = {}
+                city['name'] = row.city
+                recently_added_cities.append(city)
+
+            return jsonify(cities=recently_added_cities)
+
+        else:
+            recently_added_cities = []
+            return jsonify(cities=recently_added_cities)
+
 
 class CityListAPI(Resource):
+
 
     def get(self):
 
@@ -1394,5 +1435,6 @@ api.add_resource(NoteAPI,           '/api/v1/note/<note_id>', '/api/v1/note')
 api.add_resource(ImageAPI,          '/api/v1/image/<image_id>', '/api/v1/image/')
 api.add_resource(VenueAPI,          '/api/v1/venue/<venue_id>', '/api/v1/venue/search')
 api.add_resource(VenueListAPI,      '/api/v1/venues')
+api.add_resource(UserCityAPI,       '/api/v1/usercity/<num_cities>')
 api.add_resource(CityListAPI,       '/api/v1/cities')
 api.add_resource(PageListAPI,       '/api/v1/pages')

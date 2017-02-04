@@ -344,7 +344,6 @@ def update_venue_categories():
     #Get all locations
     venues = Venue.query
 
-
     return redirect(url_for('show_notes', username=session['username']))
 
 

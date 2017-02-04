@@ -239,6 +239,13 @@ class FoursquareVenues():
                 v.name = venue['name']
                 v.latitude = venue['location']['lat']
                 v.longitude = venue['location']['lng']
+                if 'formattedAddress' in venue['location']:
+                    if len(venue['location']['formattedAddress']) >= 1:
+                        v.address1 = venue['location']['formattedAddress'][0]
+                        v.display_name = v.name + " (" + str(v.foursquare_reviews) + " tips) - " + v.address1
+                    if len(venue['location']['formattedAddress']) >= 2:
+                        v.address2 = venue['location']['formattedAddress'][1]
+                        #v.name_address = v.name_address + " " + v.address2
 
                 self.venues.append(v)
 
@@ -257,6 +264,7 @@ class Zdummy(db.Model, UserMixin):
         return '<Zdummy %r>' % self.id
 
 # ALTER TABLE user add column has_completed_mobile_ftue tinyint(1) after is_active
+# ALTER TABLE user MODIFY column has_completed_mobile_ftue tinyint(1)  default 0
 # update user set has_completed_mobile_ftue=0;
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
