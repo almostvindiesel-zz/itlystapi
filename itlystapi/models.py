@@ -839,7 +839,7 @@ class Venue(db.Model):
             except Exception as e:
                 print "No existing venue found by searching for name: %s" % (kwargs['name']) 
                 #print ven
-        print "--- Could not find existing venue"
+        print "--- Did not find existing venue in database"
         return False
 
 

@@ -399,6 +399,35 @@ class NoteAPI(Resource):
 class VenueAPI(Resource):
 
     @requires_auth
+    def put(self, venue_id):
+        #Get Parameters
+        try:
+            json = jsonurl.parse_query(request.data)
+            user_id = json['user_id']
+            user_rating = json['user_rating']
+        except Exception as e:
+            print "Could not get some parameters: ", e.message
+            user_id = ''
+            user_rating = ''
+
+        #Write Parameters
+        print "Updating user_venue..."
+        print "--- user_rating: ", user_rating
+        print "--- user_id: ", user_id
+        print "--- venue_id: ", venue_id
+
+        if user_rating:
+            try:
+                sql = text('update user_venue set user_rating = :user_rating where venue_id = :venue_id and user_id = :user_id')
+                sql = sql.bindparams(user_rating = user_rating, venue_id = venue_id, user_id = user_id)
+                db.session.execute(sql)
+                db.session.commit()
+            except Exception as e:
+                print "Err ", e
+
+        return '', 204
+
+    @requires_auth
     def delete(self, venue_id):
         #session['user_id'] = 2;
         #user_id = session['user_id']
@@ -680,6 +709,7 @@ class VenueListAPI(Resource):
                  yelp_id=row.yelp_id,
                  is_starred=row.user_venue.is_starred,
                  user_rating=row.user_venue.user_rating,
+                 user_rating_display=False,
                  added_dt=row.added_dt
             )
 
@@ -963,7 +993,7 @@ class NewNoteAPI(Resource):
 
             # Save data depending on the review source
             # ---------------------------------------------------------
-            print "--- Determining source of the note and calling respective apis to supplement data. Source: ", source
+            print "--- Determining source of the note and call respective apis to supplement data. Source: ", source
 
             if source == 'foursquare':
 
