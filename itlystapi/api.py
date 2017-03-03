@@ -10,6 +10,7 @@ from flask import request, jsonify, Flask
 from views import *
 from models import *
 import jsonurl
+import base64
 from functools import wraps
 #from flask_restful import reqparse, abort, Api, Resource
 
@@ -18,6 +19,7 @@ from textblob import TextBlob
 
 from flaskext.mysql import MySQL
 import mysql
+
 
 #api = Api(app)
 api = Api(app)
@@ -45,22 +47,21 @@ def authenticate():
 def requires_auth(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        print "-"*75
-        print "Checking authorization...."
-        #print "request: "
-        #print request
-        #print "headers: "
-        #print request.headers
-        
-        #print "params: "
-        #print request.params
 
-        auth = request.authorization
-        print "auth.username: ", auth.username
-        print "auth.password: ", auth.password
-        if not auth or not check_auth(auth.username, auth.password):
-            return authenticate()
-        return f(*args, **kwargs)
+        #Testing to see if these talk to one another...
+
+        #Check to see if end user has been logged in via the web
+        if 'user_id' in session and not 'auth' in locals():
+            print "User has been already been authenticated via the web. User ID: ", session['user_id']
+            return f(*args, **kwargs)
+        else: 
+            auth = request.authorization
+            print "Authenticating via encoded username and passowrd"
+            print "auth.username: ", auth.username
+            print "auth.password: ", auth.password
+            if not auth or not check_auth(auth.username, auth.password):
+                return authenticate()
+            return f(*args, **kwargs)
     return decorated
 
 @app.route('/api/v1/login')
@@ -78,8 +79,19 @@ def validate_login():
 
 @app.route('/login')
 @login_required 
+@requires_auth
 def login():
-    redirect("/user/sign-in", code=302)
+    if 'user_id' in session:
+        u = User.query.filter_by(id = session['user_id']).first()
+        #var headers = { headers: {'Authorization': 'Basic '+ $base64.encode( username + ':' + password) } }
+        
+        print "email: ", u.email
+        #print base64.b64decode(u.password)
+        #authtoken = base64.b64encode(u.username + ':' + u.password
+
+        return redirect("/", code=302)
+    else:
+        return redirect("/user/sign-in", code=302)
 
 @app.route('/register')
 @app.route('/signup')
@@ -523,9 +535,9 @@ class UserCityAPI(Resource):
                     order by 2 desc \
                 ) i limit %s" % (session['user_id'], num_cities)
 
-            print '-'*50
-            print sql
-            print '-'*50
+            #print '-'*50
+            #print sql
+            #print '-'*50
 
             cities_result_set = db.session.execute(sql)
 
@@ -591,10 +603,10 @@ class VenueListAPI(Resource):
                                 .order_by(UserVenue.added_dt.desc()) \
                                 .filter(UserVenue.user_id == session['page_user_id'])
 
-        print "--- Get Venue SQL before Location Filter: \r\n", 
-        print str(venues_result_set.statement.compile(dialect=postgresql.dialect()))
+        #print "--- Get Venue SQL before Location Filter: \r\n", 
+        #print str(venues_result_set.statement.compile(dialect=postgresql.dialect()))
 
-        print venues_result_set
+        #print venues_result_set
 
         # If city is filtered, find the lat/long of the first item in that city and return all other 
         # locations within zoom miles from it
@@ -635,7 +647,6 @@ class VenueListAPI(Resource):
             venues_result_set = venues_result_set.filter(UserVenue.user_rating == session['user_rating'])
         #print '-'*50
         venues_result_set = venues_result_set.limit(300)
-
 
 
         venues =[]
@@ -847,19 +858,21 @@ class EmailInviteAPI(Resource):
 
         return '', 204
 
+
+
 # --------------------------------------------- Legacy Add Note Endpoint
+
+
 
 class NewNoteAPI(Resource):
 
     #@requires_auth
     #@app.route('/addnote', methods=['POST', 'GET'])
     #def add_note():
+
+    @login_required 
     @requires_auth
     def post(self):
-
-        #session['user_id'] = 2;
-        #user_id = session['user_id']
-        #print "--- USER AUTHENTICATION: Set user id to 2 "
 
         """ 
         When an end user highlights a selection and saves to itlyst when not on a review page from tripadvisor, foursquare, or yelp,
@@ -870,35 +883,26 @@ class NewNoteAPI(Resource):
         - location  (if the page has not been saved before by any user, we'll try to find the city or country that the page refers to)
         """
 
-
         try:
             json = jsonurl.parse_query(request.data)
-            user_id = json['user_id']
+            #Get the user id from either the session or post request
+            if 'user_id' in json:  
+                user_id = json['user_id']
+            elif 'user_id' in session:
+                user_id = session['user_id']
         except Exception as e:
             print "Could not get parameters: ", e.message
             user_id = ''
 
-        print '=' * 80
-
-        response_json = jsonurl.parse_query(request.data)
-
+        # Get form data. Method will differ depending on source (chrome extension vs app)
+        if request.data:
+            response_json = jsonurl.parse_query(request.data)
+        else: 
+            response_json = request.form
+       
 
         action = response_json.get('action', None)
-        print "action: ", action
 
-        
-        
-        """
-        print "Action: ", response_json.get('action')
-        print "Action: ", request.args.get('action')
-
-        print json.dumps(response_json)
-        print json.dumps(request.args)
-        print request.args
-        print response_json
-        """
-
-        
         if action == 'new_page_note_from_home':
 
             pn = PageNote(
@@ -950,8 +954,6 @@ class NewNoteAPI(Resource):
                 response_json.get('longitude', None)
             )
 
-
-
             n = None
             ui = None
             if response_json.get('image_url'):
@@ -991,6 +993,7 @@ class NewNoteAPI(Resource):
             l.address1 = None #!!!
             l.address2 = None #!!!
 
+
             # Save data depending on the review source
             # ---------------------------------------------------------
             print "--- Determining source of the note and call respective apis to supplement data. Source: ", source
@@ -1005,12 +1008,19 @@ class NewNoteAPI(Resource):
                 v.foursquare_url = source_url
                 v.foursquare_id = source_id
 
-                #Location Attributes, acquired from foursquare venue api
-                #fsv = FoursquareVenue()
-                #fsv.get(v.foursquare_id, l.latitude, l.longitude)
-                #l.city = fsv.city               #Use city, state, and country from the api rather than from the forms for consistency
-                #l.state = fsv.state
-                #l.country = fsv.country
+                #If lat/long attributes are missing, call the api to supplement them:
+                if not l.latitude.isnumeric() or not l.longitude.isnumeric():
+                    print "Location attributes are missing. Update them via the foursquare api..."
+                    #Location Attributes, acquired from foursquare venue api
+                    fsv = FoursquareVenue()
+                    fsv.get(v.foursquare_id)
+                    l.latitude = fsv.latitude
+                    l.longitude = fsv.longitude
+                    #l.city = fsv.city               
+                    #l.state = fsv.state
+                    #l.country = fsv.country
+                    #print "-- latitude: ", l.latitude
+                    #print "-- longitude: ", l.latitude
 
             elif source == 'tripadvisor' or source == 'yelp':
 
@@ -1049,7 +1059,7 @@ class NewNoteAPI(Resource):
 
                     #Call FS Venue API to Get FS Ratings/Reviews, since ratings/reviews aren't available in search
                     fsven = FoursquareVenue()
-                    fsven.get(v.foursquare_id, l.latitude, l.longitude)
+                    fsven.get(v.foursquare_id) 
                     v.foursquare_rating = fsven.rating
                     v.foursquare_reviews = fsven.reviews
 
@@ -1059,7 +1069,7 @@ class NewNoteAPI(Resource):
                         categories = fsv.categories
                         v.parent_category = classify_parent_category(categories, v.name.split())
                     #if fsv.city:
-                    #    l.city = fsv.city
+                    # l.city = fsv.city
                     #l.state = fsv.state
                     #l.country = fsv.country
 
@@ -1085,9 +1095,7 @@ class NewNoteAPI(Resource):
             # ---------------------------------------------------------
             print "--- Inserting note as well as venue and location, if applicable"
 
-            # Search If the venue exists, just add the note
-
-
+            # Search - if the venue exists, just add the note
             searched_venue_in_db = Venue.get(name=v.name, foursquare_id=v.foursquare_id, tripadvisor_id=v.tripadvisor_id, yelp_id=v.yelp_id)
             if searched_venue_in_db:
                 #Insert User Venue Map
@@ -1096,6 +1104,19 @@ class NewNoteAPI(Resource):
                 uv.find()
                 if not uv.id:
                     uv.insert()
+
+                #If the venue already exists in the database, but the source for that venue doesn't exist, update with the new info
+                if v.foursquare_id and searched_venue_in_db.foursquare_id is None:
+                    searched_venue_in_db.update_fields(foursquare_id=v.foursquare_id,foursquare_reviews=v.foursquare_reviews,
+                                                       foursquare_rating=v.foursquare_rating,foursquare_url=v.foursquare_url)
+                if v.tripadvisor_id and searched_venue_in_db.tripadvisor_id is None:
+                    searched_venue_in_db.update_fields(tripadvisor_id=v.tripadvisor_id,tripadvisor_reviews=v.tripadvisor_reviews,
+                                                       tripadvisor_rating=v.tripadvisor_rating,tripadvisor_url=v.tripadvisor_url)
+                if v.yelp_id and searched_venue_in_db.yelp_id is None:
+                    searched_venue_in_db.update_fields(yelp_id=v.yelp_id,yelp_reviews=v.yelp_reviews,
+                                                       yelp_rating=v.yelp_rating,yelp_url=v.yelp_url)
+
+
 
                 #Insert Note or Image:
                 if n and ui:

@@ -36,11 +36,11 @@ db.session.execute("SET NAMES utf8mb4;")
 #!!! combine the methods that parse the venue data from the api
 class FoursquareVenue():
 
-    def get(self, foursquare_id, latitude, longitude):
+    def get(self, foursquare_id):
 
         self.foursquare_id = foursquare_id
-        self.latitude = latitude
-        self.longitude = longitude
+        self.latitude = None
+        self.longitude = None
         
         self.name = None
         self.foursquare_url = None
@@ -69,6 +69,11 @@ class FoursquareVenue():
 
             self.rating = venue_json['response']['venue']['rating']
             self.reviews = venue_json['response']['venue']['ratingSignals']
+
+            self.latitude = venue_json['response']['venue']['location']['lat']
+            self.longitude = venue_json['response']['venue']['location']['lng']
+            self.city = venue_json['response']['venue']['location']['city']
+
 
         except Exception as e:
             print "Could not augment data from foursquare api: ", e.message, e.args
@@ -153,7 +158,7 @@ class Location(db.Model):
                     print "--- From Google Lat Long API, Country: ", datums['long_name']
         
         except Exception as e:
-            print "Could not get data from google api api: ", e.message, e.args
+            print "Could not get data from google api: ", e.message, e.args
 
 
     def set_lat_lng_state_from_city_country(self):
@@ -790,6 +795,35 @@ class Venue(db.Model):
     def __repr__(self):
         return '<Venue %r>' % self.name
 
+    def update_fields(self, **kwargs):
+        if 'foursquare_id' in kwargs:
+            try:
+                updated_fields = dict(foursquare_id=kwargs['foursquare_id'], foursquare_reviews=kwargs['foursquare_reviews'],
+                                      foursquare_rating=kwargs['foursquare_rating'],foursquare_url=kwargs['foursquare_url'])
+                updated_venue = Venue.query.filter_by(id = self.id).update(updated_fields)
+                db.session.commit()
+                print "--- updated venue for foursquare:", self.name
+            except Exception as e:
+                print "Could not update venue: ", self.name, e.message, e.args     
+        elif 'yelp_id' in kwargs:
+            try:
+                updated_fields = dict(yelp_id=kwargs['yelp_id'], yelp_reviews=kwargs['yelp_reviews'],
+                                      yelp_rating=kwargs['yelp_rating'],yelp_url=kwargs['yelp_url'])
+                updated_venue = Venue.query.filter_by(id = self.id).update(updated_fields)
+                db.session.commit()
+                print "--- updated venue for yelp:", self.name
+            except Exception as e:
+                print "Could not update venue: ", self.name, e.message, e.args
+        elif 'tripadvisor_id' in kwargs:
+            try:
+                updated_fields = dict(tripadvisor_id=kwargs['tripadvisor_id'], tripadvisor_reviews=kwargs['tripadvisor_reviews'],
+                                      tripadvisor_rating=kwargs['tripadvisor_rating'],tripadvisor_url=kwargs['tripadvisor_url'])
+                updated_venue = Venue.query.filter_by(id = self.id).update(updated_fields)
+                db.session.commit()
+                print "--- updated venue for tripadvisor:", self.name
+            except Exception as e:
+                print "Could not update venue: ", self.name, e.message, e.args
+
     def insert(self):
         try:
             db.session.add(self)
@@ -804,7 +838,7 @@ class Venue(db.Model):
     def get(cls, **kwargs):
         if kwargs['foursquare_id']:
             try: 
-                print '--- Searching for venue using foursquare_id: %s' % (kwargs['foursquare_id'])
+                print '--- Searching for venue in database using foursquare_id: %s' % (kwargs['foursquare_id'])
                 ven = Venue.query.filter_by(foursquare_id = kwargs['foursquare_id']).first()
                 if ven:
                     print 'Found venue id: %s, name: %s' % (ven.name, ven.id)
