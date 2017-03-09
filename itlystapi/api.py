@@ -96,7 +96,7 @@ def login():
 @app.route('/register')
 @app.route('/signup')
 def register():
-    redirect("/user/register", code=302)
+    return redirect("/user/register", code=302)
 
 @app.route('/post_registration')
 def post_registration():
@@ -644,7 +644,7 @@ class VenueListAPI(Resource):
             venues_result_set = venues_result_set.filter(UserVenue.is_hidden == False)
         if session['user_rating'] != '':
             print "~~~ user_rating:", session['user_rating']
-            venues_result_set = venues_result_set.filter(UserVenue.user_rating == session['user_rating'])
+            venues_result_set = venues_result_set.filter(UserVenue.user_rating.in_(session['user_rating']))
         #print '-'*50
         venues_result_set = venues_result_set.limit(300)
 
@@ -1385,11 +1385,8 @@ def initialize_session_vars():
     session['user_rating_options'] = [0, 1, 2, 3, 4]
     session['user_rating_display'] = ["fa fa-circle-o", "fa fa-thumb-tack", "fa fa-meh-o",  "fa fa-frown-o",  "fa fa-smile-o"]
     if request.args.get('user_rating'):
-        if request.args.get('user_rating') == session['user_rating']:
-            session['user_rating'] = ''
-        else:
-            session['user_rating'] = request.args.get('user_rating')
-            print "--- Changed user_rating filter to: ", session['user_rating']
+        session['user_rating'] = request.args.get('user_rating').split(",")
+        print "--- Changed user_rating filter to: ", session['user_rating']
     if  not ('user_rating' in session) or session['user_rating'] == 'reset' or session['user_rating'] == '':
         session['user_rating'] = ''
 
