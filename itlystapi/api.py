@@ -218,7 +218,7 @@ class ImageAPI(Resource):
 
 
         ui = UserImage.query.filter_by(id = image_id).first()
-        server_path = 'itlystapi/tmp/';
+        server_path = app.config['IMAGE_TMP_PATH']
         s3_bucket = app.config['S3_BUCKET']
         thumbnail_width = 200
         large_width = 1024
