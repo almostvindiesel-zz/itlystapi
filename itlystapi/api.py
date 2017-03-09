@@ -209,15 +209,13 @@ class ImageAPI(Resource):
 
         return '', 204
 
+    @login_required 
     @requires_auth
     def put(self, image_id):
         #print "--- USER AUTHENTICATION: Set user id to 2 "
         #session['user_id'] = 2;
         #user_id = session['user_id']
 
-
-
-        
 
         ui = UserImage.query.filter_by(id = image_id).first()
         server_path = 'itlystapi/tmp/';
