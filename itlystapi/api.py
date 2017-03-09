@@ -89,7 +89,8 @@ def login():
         #print base64.b64decode(u.password)
         #authtoken = base64.b64encode(u.username + ':' + u.password
 
-        return redirect("/", code=302)
+        #return redirect("/", code=302)
+        return jsonify("You are logged in!")
     else:
         return redirect("/user/sign-in", code=302)
 
@@ -102,7 +103,11 @@ def register():
 def post_registration():
     return render_template('registration_success.html')
 
-@app.route('/post_email_confiration')
+@app.route('/post_login_confirmation')
+def post_login_confirmation():
+    return render_template('login_success.html')
+
+@app.route('/post_email_confirmation')
 def post_email_confiration():
     return render_template('email_confirmation_success.html')
 

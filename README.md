@@ -2,12 +2,12 @@
 virtualenv venv
 . venv/bin/activate
 pip install -r requirements.txt
-# brew install pkg-config libffi
-# export PKG_CONFIG_PATH=/usr/local/Cellar/libffi/3.0.13/lib/pkgconfig/
 python runserverlocal.py
 
 
 # Setup
+
+- TBD: Figure out how to optimally copy over settings in flaskuser: venv/lib/python2.7/site-packages/flask_user/settings.py
 
 ## Database
 - Create database itlyst on mysql
