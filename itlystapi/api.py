@@ -1041,8 +1041,11 @@ class NewNoteAPI(Resource):
 
                 #Call the Foursquare API and find the venue in the provided city
                 #Use that data to supplement venue data
+                print "--- Searching for matching venue using Foursquare API"
                 fsvs = FoursquareVenues(v.name, l.city, l.latitude, l.longitude)
                 fsvs.search()
+
+
 
                 # Find a matching venue from a set of venues returned from foursquare
                 # Choose the one that has the closest matching name
@@ -1067,10 +1070,15 @@ class NewNoteAPI(Resource):
                     v.foursquare_reviews = fsven.reviews
 
                     #If no category derived from source, use foursquare categories and venue categories:
+                    #!!! probably need to work on this 
                     if len(categories) == 0:
-                        print "--- Using Foursquare venue api category: ", fsv.categories
-                        categories = fsv.categories
-                        v.parent_category = classify_parent_category(categories, v.name.split())
+                        if fsven.category:
+                            print "--- Using Foursquare venue api category: ", fsven.category
+                            categories = fsven.category
+                            v.parent_category = classify_parent_category(categories, v.name.split())
+                        else:
+                            print "--- Setting parent category to none"
+                            v.parent_category = None
                     #if fsv.city:
                     # l.city = fsv.city
                     #l.state = fsv.state

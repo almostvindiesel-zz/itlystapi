@@ -67,12 +67,30 @@ class FoursquareVenue():
             self.foursquare_id = venue_json['response']['venue']['id']
             self.foursquare_url = 'https://foursquare.com/v/' + self.foursquare_id
 
-            self.rating = venue_json['response']['venue']['rating']
-            self.reviews = venue_json['response']['venue']['ratingSignals']
 
-            self.latitude = venue_json['response']['venue']['location']['lat']
-            self.longitude = venue_json['response']['venue']['location']['lng']
-            self.city = venue_json['response']['venue']['location']['city']
+            try:
+                self.rating = venue_json['response']['venue']['rating']
+            except Exception as e:
+                print "Could not get foursquare rating"
+
+            try:
+                self.reviews = venue_json['response']['venue']['ratingSignals']
+            except Exception as e:
+                print "Could not get foursquare reviews"
+
+            try:
+                self.city = venue_json['response']['venue']['location']['city']
+            except Exception as e:
+                print "Could not get foursquare city"
+
+            try:
+                self.latitude = venue_json['response']['venue']['location']['lat']
+                self.longitude = venue_json['response']['venue']['location']['lng']
+            except Exception as e:
+                print "Could not get foursquare lat or long"
+
+            
+        
 
 
         except Exception as e:
@@ -203,9 +221,16 @@ class FoursquareVenues():
         #First it tries to find this info via city. If unsuccessful, it then uses lat/long
 
         #Find venue on foursquare via city:
-        url = 'https://api.foursquare.com/v2/venues/search?client_id=%s&client_secret=%s&v=%s&near=%s&query=%s&locale=en' % \
-        (app.config['FOURSQUARE_API_CLIENT_ID'], app.config['FOURSQUARE_API_CLIENT_SECRET'], \
-         app.config['FOURSQUARE_API_VERSION'], self.search_city, self.search_name )
+        if self.search_latitude and self.search_longitude:
+            url = 'https://api.foursquare.com/v2/venues/search?client_id=%s&client_secret=%s&v=%s&ll=%s,%s&query=%s&locale=en' % \
+            (app.config['FOURSQUARE_API_CLIENT_ID'], app.config['FOURSQUARE_API_CLIENT_SECRET'], \
+             app.config['FOURSQUARE_API_VERSION'], self.search_latitude, self.search_longitude, self.search_name )
+        elif self.search_city:
+            url = 'https://api.foursquare.com/v2/venues/search?client_id=%s&client_secret=%s&v=%s&near=%s&query=%s&locale=en' % \
+            (app.config['FOURSQUARE_API_CLIENT_ID'], app.config['FOURSQUARE_API_CLIENT_SECRET'], \
+             app.config['FOURSQUARE_API_VERSION'], self.search_city, self.search_name )
+        else:
+            raise ValueError('No city or lat long supplied for Foursquare Search')
 
         print "--- Foursquare Venue Search API Url via city: \r", url
 
