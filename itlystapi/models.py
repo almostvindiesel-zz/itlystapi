@@ -134,8 +134,14 @@ class Location(db.Model):
     def __init__(self, ltype, city, latitude, longitude):
         self.ltype = ltype
         self.city = city
-        self.latitude = latitude
-        self.longitude = longitude
+        try: 
+            self.latitude = float(latitude)
+        except Exception as e:
+            print "Latitude not convertable to float", e.message, e.args
+        try: 
+            self.longitude = float(longitude)
+        except Exception as e:
+            print "Longitude not convertable to float", e.message, e.args
         self.address1 = None
         self.address2 = None
         self.state = None

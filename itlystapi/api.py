@@ -112,7 +112,6 @@ def post_email_confiration():
     return render_template('email_confirmation_success.html')
 
 
-
 # --------------------------------------------- API Resources
 
 class TextAPI(Resource):
@@ -1011,9 +1010,12 @@ class NewNoteAPI(Resource):
                 v.foursquare_url = source_url
                 v.foursquare_id = source_id
 
+
                 #If lat/long attributes are missing, call the api to supplement them:
-                if not l.latitude.isnumeric() or not l.longitude.isnumeric():
-                    print "Location attributes are missing. Update them via the foursquare api..."
+                # Resolve me!!!
+                print ">>>>> l.latitude:", l.latitude
+                if not l.latitude or not l.longitude:
+                    print "Lat/Long Location attributes are missing. Update them via the foursquare api..."
                     #Location Attributes, acquired from foursquare venue api
                     fsv = FoursquareVenue()
                     fsv.get(v.foursquare_id)
