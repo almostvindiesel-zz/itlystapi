@@ -602,7 +602,6 @@ class VenueListAPI(Resource):
                                 .join(UserVenue,      and_(Venue.id == UserVenue.venue_id, UserVenue.user_id == session['page_user_id']) ) \
                                 .outerjoin(Note,      and_(UserVenue.venue_id == Note.venue_id, Note.user_id == session['page_user_id']) ) \
                                 .outerjoin(UserImage, and_(UserVenue.venue_id == UserImage.venue_id, UserImage.user_id == session['page_user_id']) ) \
-                                .order_by(UserVenue.added_dt.desc()) \
                                 .filter(UserVenue.user_id == session['page_user_id'])
 
         #print "--- Get Venue SQL before Location Filter: \r\n", 
@@ -610,13 +609,24 @@ class VenueListAPI(Resource):
 
         #print venues_result_set
 
+
+
         # If city is filtered, find the lat/long of the first item in that city and return all other 
         # locations within zoom miles from it
         if session['city'] != '':
+            #If user has supplied current location, then used supplied lat long attributes. Otherwise, look up lat long from the city
+            if session['city'] == 'Current Location':
+                latitude_start = session['latitude']
+                longitude_start = session['longitude']
+                print "~~~ filtered lat/long:", session['latitude'], session['longitude']
+            else:
+                l = Location.query.filter_by(city = session['city']).first()
+                latitude_start = l.latitude
+                longitude_start = l.longitude 
+                print "~~~ filtered city:", session['city']
+
             print "~~~ filtered city:", session['city']
-            l = Location.query.filter_by(city = session['city']).first()
-            latitude_start = l.latitude
-            longitude_start = l.longitude
+
             zoom = session['zoom']
 
             sql = "SELECT id, latitude, longitude, SQRT( \
@@ -647,6 +657,13 @@ class VenueListAPI(Resource):
         if session['user_rating'] != '':
             print "~~~ user_rating:", session['user_rating']
             venues_result_set = venues_result_set.filter(UserVenue.user_rating.in_(session['user_rating']))
+        if session['sort_by'] == 'recent':
+            print "~~~ sort_by:", session['sort_by']
+            venues_result_set = venues_result_set.order_by(UserVenue.added_dt.desc())
+        elif session['sort_by'] == 'rating':
+            print "~~~ sort_by:", session['sort_by']
+            venues_result_set = venues_result_set.order_by(UserVenue.user_rating.desc())
+
         #print '-'*50
         venues_result_set = venues_result_set.limit(300)
 
@@ -1386,6 +1403,13 @@ def initialize_session_vars():
     #Necessary?
     app.secret_key = app.config['APP_SECRET_KEY']
 
+    if request.args.get('sort_by'):
+        session['sort_by'] = request.args.get('sort_by')
+        print "--- Changed sort_by to: ", request.args.get('sort_by')
+    if not ('sort_by' in session):
+        session['sort_by'] = 'recent'
+    #!!! I should probably from this in the app (at the moment it's harcoded in the app):
+    session['sort_by_options'] = [ 'recent', 'rating', 'distance' ]
 
     if request.args.get('zoom'):
         session['zoom'] = request.args.get('zoom')
@@ -1393,7 +1417,6 @@ def initialize_session_vars():
     if not ('zoom' in session):
         session['zoom'] = 5
     session['zoom_options'] = ['1', '3', '5','10','25','50']
-
 
     session['user_rating_options'] = [0, 1, 2, 3, 4]
     session['user_rating_display'] = ["fa fa-circle-o", "fa fa-thumb-tack", "fa fa-meh-o",  "fa fa-frown-o",  "fa fa-smile-o"]
@@ -1466,6 +1489,11 @@ def initialize_session_vars():
         session['city'] = request.args.get('city')
         session['country'] = ''
         print "--- Changed city filter to: ", session['city']
+        if session['city'] == 'Current Location':
+            session['latitude'] = request.args.get('latitude')
+            session['longitude'] = request.args.get('longitude')
+            print "@@@@@@@@@@@@lat and long found ;",  session['longitude']
+
     if not 'city' in session or session['city'] == 'reset' or session['city'] == '':
         session['city'] = ''
     
