@@ -518,6 +518,24 @@ class VenueAPI(Resource):
         return jsonify(venues=venues[:8])
 
 
+class CityAPI(Resource):
+
+    #@requires_auth
+    def get(self):
+        l = Location('city', None, None, None)
+
+        l.google_place_id = request.args.get('google_place_id', None)
+
+        if l.google_place_id:
+            l.supplement_city_with_lat_lng_using_google_place_id()
+            l.print_to_console()
+
+        coords = dict(latitude=l.latitude,longitude=l.longitude)
+
+        return jsonify(city=coords)
+
+
+
 class UserCityAPI(Resource):
 
     @requires_auth
@@ -526,20 +544,32 @@ class UserCityAPI(Resource):
         initialize_session_vars()
 
         if num_cities > 0:
-            sql = "select distinct city from ( \
-                    select l.city, max(uv.added_dt) added_dt\
-                    from user_venue uv \
-                      inner join venue v on uv.venue_id = v.id \
-                      inner join location l on l.id = v.location_id \
-                    where uv.user_id = %s \
-                     and city is not null \
-                    group by 1 \
-                    order by 2 desc \
-                ) i limit %s" % (session['user_id'], num_cities)
+            sql = "\
+                SELECT l.city, l.latitude, l.longitude \
+                FROM user_venue uv \
+                  INNER JOIN venue v ON uv.venue_id = v.id \
+                  INNER JOIN location l ON l.id = v.location_id \
+                  INNER JOIN ( \
+                    SELECT \
+                       l.city, \
+                       max(l.id) id \
+                     FROM user_venue uv \
+                       INNER JOIN venue v ON uv.venue_id = v.id \
+                       INNER JOIN location l ON l.id = v.location_id \
+                     WHERE uv.user_id = %s \
+                      AND city IS NOT NULL \
+                     GROUP BY 1 \
+                   ) rc on l.id = rc.id \
+                WHERE uv.user_id = %s \
+                  and l.city is not null  \
+                  and l.latitude is not null  \
+                  and l.longitude is not null \
+                order by uv.id desc \
+                limit %s" % (session['user_id'], session['user_id'], num_cities)
 
-            #print '-'*50
-            #print sql
-            #print '-'*50
+            print '-'*50
+            print sql
+            print '-'*50
 
             cities_result_set = db.session.execute(sql)
 
@@ -547,6 +577,8 @@ class UserCityAPI(Resource):
             for row in cities_result_set:
                 city = {}
                 city['name'] = row.city
+                city['latitude'] = row.latitude
+                city['longitude'] = row.longitude
                 recently_added_cities.append(city)
 
             return jsonify(cities=recently_added_cities)
@@ -558,7 +590,28 @@ class UserCityAPI(Resource):
 
 class CityListAPI(Resource):
 
+    def get(self):
 
+        #Query string to search for a given city
+        q = request.args.get('q', None)
+
+        l = Locations()
+        l.search_for_locations_by_city(q)
+        #l.print_to_console()
+
+        locationsList = list()
+        for loc in l.locations:
+            datum = {}
+            datum['google_place_id'] = loc.google_place_id
+            datum['city'] = loc.city
+            datum['city_display'] = loc.city_display
+            datum['tokens'] = loc.city.split(" ");
+            locationsList.append(datum)
+
+        return jsonify(cities=locationsList)
+
+
+    """
     def get(self):
 
         #Query string to search for a given city
@@ -582,6 +635,22 @@ class CityListAPI(Resource):
             cities.append(city)
 
         return jsonify(cities=cities)
+        """
+
+#Returns a list of locations based on a city query 
+"""
+class LocationListAPI(Resource):
+
+    def get(self, q):
+        locs = Locations()
+        locs.search_for_locations_by_city(q)
+        locs.print_to_console()
+        print "-" * 50
+
+        l = locs.locations[0]
+        l.supplement_city_with_lat_lng_using_google_place_id()
+        l.print_to_console()
+"""
 
 class VenueListAPI(Resource):
 
@@ -593,7 +662,7 @@ class VenueListAPI(Resource):
 
 
         print "--- session['page_user_id']: ", session['page_user_id']
-        print "--- session['page_user_id'] type: ", type(session['page_user_id'])
+        #print "--- session['page_user_id'] type: ", type(session['page_user_id'])
 
         #Query Venues, apply filters
         #                                #.filter() \ #.join(UserVenue, UserVenue.user_id == session['page_user_id']) \
@@ -615,6 +684,9 @@ class VenueListAPI(Resource):
         # locations within zoom miles from it
         if session['city'] != '':
             #If user has supplied current location, then used supplied lat long attributes. Otherwise, look up lat long from the city
+            latitude_start = session['latitude']
+            longitude_start = session['longitude']
+            """
             if session['city'] == 'Current Location':
                 latitude_start = session['latitude']
                 longitude_start = session['longitude']
@@ -624,6 +696,7 @@ class VenueListAPI(Resource):
                 latitude_start = l.latitude
                 longitude_start = l.longitude 
                 print "~~~ filtered city:", session['city']
+            """
 
             print "~~~ filtered city:", session['city']
 
@@ -638,6 +711,8 @@ class VenueListAPI(Resource):
                     POW(69.1 * (latitude - %s), 2) + \
                     POW(69.1 * (%s - longitude) * COS(latitude / 57.3), 2)) < %s" \
                     % (latitude_start, longitude_start, latitude_start, longitude_start, session['zoom'])
+
+            #!!! Add Ordering for Locations
 
             locations = db.session.execute(sql)
             locationIDs = []
@@ -663,6 +738,9 @@ class VenueListAPI(Resource):
         elif session['sort_by'] == 'rating':
             print "~~~ sort_by:", session['sort_by']
             venues_result_set = venues_result_set.order_by(UserVenue.user_rating.desc())
+        elif session['sort_by'] == 'recent':
+            print "~~~ sort_by:", session['sort_by']
+            venues_result_set = venues_result_set.order_by(UserVenue.user_rating.desc())            
 
         #print '-'*50
         venues_result_set = venues_result_set.limit(300)
@@ -1489,10 +1567,10 @@ def initialize_session_vars():
         session['city'] = request.args.get('city')
         session['country'] = ''
         print "--- Changed city filter to: ", session['city']
-        if session['city'] == 'Current Location':
-            session['latitude'] = request.args.get('latitude')
-            session['longitude'] = request.args.get('longitude')
-            print "@@@@@@@@@@@@lat and long found ;",  session['longitude']
+        session['latitude'] = request.args.get('latitude')
+        session['longitude'] = request.args.get('longitude')
+        print "--- Changed latitude filter to: ", session['latitude']
+        print "--- Changed longitude filter to: ", session['longitude']
 
     if not 'city' in session or session['city'] == 'reset' or session['city'] == '':
         session['city'] = ''
@@ -1518,6 +1596,8 @@ def str_to_float(str):
 api.add_resource(NewNoteAPI,        '/addnote')
 
 api.add_resource(EmailInviteAPI,    '/api/v1/emailinvite')
+#api.add_resource(LocationListAPI,   '/api/v1/locations/<q>')
+
 api.add_resource(UserAPI,           '/api/v1/user')
 api.add_resource(TextAPI,           '/api/v1/text')
 api.add_resource(NoteAPI,           '/api/v1/note/<note_id>', '/api/v1/note')
@@ -1525,5 +1605,6 @@ api.add_resource(ImageAPI,          '/api/v1/image/<image_id>', '/api/v1/image/'
 api.add_resource(VenueAPI,          '/api/v1/venue/<venue_id>', '/api/v1/venue/search')
 api.add_resource(VenueListAPI,      '/api/v1/venues')
 api.add_resource(UserCityAPI,       '/api/v1/usercity/<num_cities>')
+api.add_resource(CityAPI,           '/api/v1/city')
 api.add_resource(CityListAPI,       '/api/v1/cities')
 api.add_resource(PageListAPI,       '/api/v1/pages')

@@ -115,6 +115,57 @@ from location  l
   on (dups.latitude = l.latitude and dups.longitude = l.longitude) order by latitude asc
 """
 
+class Locations():
+
+    def __init__(self):
+        self.locations = list()
+
+    def search_for_locations_by_city(self, q):
+
+        try: 
+            gurl = 'https://maps.googleapis.com/maps/api/place/autocomplete/json?input=%s&types=(cities)&key=%s' % (q, app.config['GMAPS_PLACES_API_KEY'])
+            print "--- Searching for City from Google Loc API: %s" % (gurl)
+
+            r = requests.get(gurl)
+            g_json = r.json()
+            for datum in g_json['predictions']:
+                loc = Location('city', None, None, None)
+
+                #City
+                if 'value' in datum['terms'][0]:
+                    loc.city = datum['terms'][0]['value']
+                    loc.city_display = loc.city
+
+                if len(datum['terms']) >= 3:
+                    #State
+                    if 'value' in datum['terms'][1]:
+                        loc.state = datum['terms'][1]['value']
+                        loc.city_display = loc.city_display + ", " + loc.state
+
+                    #Country
+                    if 'value' in datum['terms'][2]:
+                        loc.country = datum['terms'][2]['value']
+                        loc.city_display = loc.city_display + ", " + loc.country
+                #If there are only two values, assume the second is country
+                elif len(datum['terms']) == 2:
+                    if 'value' in datum['terms'][1]:
+                        loc.country = datum['terms'][1]['value']
+                        loc.city_display = loc.city_display + ", " + loc.country
+
+                loc.google_place_id = datum['place_id']
+
+                #loc.print_to_console()
+
+                self.locations.append(loc)
+            
+        except Exception as e:
+            print "Could not get data from google api: ", e.message, e.args
+
+    def print_to_console(self):
+        for loc in self.locations:
+            print "%s, %s, %s, %s" % (loc.city, loc.state, loc.country, loc.google_place_id)
+
+
 class Location(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     ltype = db.Column(db.String(50))
@@ -127,6 +178,8 @@ class Location(db.Model):
     country  = db.Column(db.String(50))
     added_dt  = db.Column(db.DateTime(timezone=True), server_default=func.now())
     updated_dt  = db.Column(db.DateTime(timezone=True), onupdate=func.now())
+    google_place_id = None
+    city_display = None
     __table_args__ = {'mysql_charset': 'utf8'}
 
     venue = relationship("Venue", back_populates="location")
@@ -135,11 +188,13 @@ class Location(db.Model):
         self.ltype = ltype
         self.city = city
         try: 
-            self.latitude = float(latitude)
+            if self.latitude:
+                self.latitude = float(latitude)
         except Exception as e:
             print "Latitude not convertable to float", e.message, e.args
         try: 
-            self.longitude = float(longitude)
+            if self.longitude:
+                self.longitude = float(longitude)
         except Exception as e:
             print "Longitude not convertable to float", e.message, e.args
         self.address1 = None
@@ -150,6 +205,8 @@ class Location(db.Model):
     def __repr__(self):
         return '<Location %r>' % self.id
 
+    def print_to_console(self):
+        print "city: %s, state: %s, lat: %s, lng: %s" % (self.city, self.state, self.latitude, self.longitude)
     #UniqueConstraint('latitude', 'longitude', name='lat_long_constraint')
 
     def insert(self):
@@ -161,6 +218,25 @@ class Location(db.Model):
             print "Could not insert location, attributes:"
             print "id: %s ltype: %s city: %s country: %s latitude: %s longitude: %s" % (self.id, self.ltype, self.city, self.country, self.latitude, self.longitude)
             print e.message, e.args
+
+    def supplement_city_with_lat_lng_using_google_place_id(self):
+        if self.google_place_id:
+            gurl = 'https://maps.googleapis.com/maps/api/place/details/json?placeid=%s&key=%s' % (self.google_place_id, app.config['GMAPS_PLACES_API_KEY'])
+            print "--- Searching for City from Google Loc API: %s" % (gurl)
+            
+            try: 
+                r = requests.get(gurl)
+                g_json = r.json()
+                if 'lat' in g_json['result']['geometry']['location']:
+                    self.latitude = g_json['result']['geometry']['location']['lat']
+                if 'lng' in g_json['result']['geometry']['location']:
+                    self.longitude = g_json['result']['geometry']['location']['lng']
+            except Exception as e:
+                print e.message, e.args
+
+        else: 
+            print "No google place id. Can't supplement data"
+
 
     def set_city_state_country_with_lat_lng_from_google_location_api(self):
 
