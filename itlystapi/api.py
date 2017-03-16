@@ -25,6 +25,8 @@ import mysql
 api = Api(app)
 
 
+
+
 # ---------------------------------------------  Authentication
 def check_auth(email, password):
     #This function checks whether the username and password match

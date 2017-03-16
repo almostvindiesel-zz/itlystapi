@@ -23,6 +23,7 @@ flask-mysql
 MySQL-python
 mysql-connector-python-rf
 
+flask-cors
 
 # python -m textblob.download_corpora  <-- needed for textblog nto sure how to encorporate
 
