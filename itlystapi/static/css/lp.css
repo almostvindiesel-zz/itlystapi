@@ -15,6 +15,12 @@ h2, span.introtext, span.logo {
   font-family: "Lato","Helvetica Neue",Helvetica,Arial,sans-serif;
 }
 
+.logintext {
+  color: #ececec;
+  font-size: 14px;
+  font-family: "Lato","Helvetica Neue",Helvetica,Arial,sans-serif;
+}
+
 span.logo {
   color: white;
   text-align: center;
