@@ -5,3 +5,9 @@ app/api.pyc
 app/models.pyc
 app/settingslocal.pyc
 app/views.pyc
+app.pyc
+itlystapi/__init__.pyc
+itlystapi/api.pyc
+itlystapi/models.pyc
+itlystapi/settingslocal.pyc
+itlystapi/views.pyc

@@ -12,6 +12,7 @@ from models import *
 import jsonurl
 import base64
 from functools import wraps
+from flask_mail import Mail, Message
 #from flask_restful import reqparse, abort, Api, Resource
 
 import textblob
@@ -101,8 +102,33 @@ def login():
 def register():
     return redirect("/user/register", code=302)
 
+
 @app.route('/post_registration')
 def post_registration():
+    #After registration, send welcome email to end user 
+
+    #Send Welcome Email
+    try:
+        if 'user_id' in session:
+            u = User.query.filter_by(id = session['user_id']).first()
+            recipient = u.email
+            subject = "Welcome to itlyst - Install Chrome Extension"
+            sender = app.config['MAIL_DEFAULT_SENDER']
+            msg = Message(subject,
+                sender=sender,
+                recipients=[recipient])
+            msg.body = "testing"
+            msg.html = render_template('flask_user/emails/welcome_message.html', server_web=app.config['HOSTNAME_WEB'])
+            print "Sending welcome email..."
+            mail.send(msg)
+            print "...SENT "
+        else:
+            print "Could not get user_id and thus email address. Not able to send welcome email", e
+
+    except Exception as e:
+        print "Could not send welcome email. Exception:", e
+
+    #Return registration confirmatiomn
     return render_template('registration_success.html')
 
 @app.route('/post_login_confirmation')
@@ -110,7 +136,7 @@ def post_login_confirmation():
     return render_template('login_success.html')
 
 @app.route('/post_email_confirmation')
-def post_email_confiration():
+def post_email_confirmation():
     return render_template('email_confirmation_success.html')
 
 

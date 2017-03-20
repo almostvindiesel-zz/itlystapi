@@ -1,16 +1,7 @@
-{% extends 'flask_user/emails/base_message.html' %}
+<p>To complete your registration with {{ app_name }}, please click on the link below:<br/><br/>
+<a href="{{ confirm_email_link }}">Confirm your email</a></p>
 
-{% block message %}
-
-<p>Thank you for registering with {{ app_name }}.</p>
-
-{% if user_manager.enable_confirm_email and not user.confirmed_at %}
-<p>You will need to confirm your email next.</p>
-
-<p>If you initiated this registration, please click on the link below:<br/>
-&nbsp;&nbsp;&nbsp;&nbsp;<a href="{{ confirm_email_link }}">Confirm your email</a>.</p>
-
-<p>If you did not initiate this registration, you may safely ignore this email.</p>
-{% endif %}
-
-{% endblock %}
+<p>Sincerely,<br/><br/>
+{{ app_name }} team<br/>
+<a href='http://www.itlyst.com'>itlyst.com</a>
+</p>
