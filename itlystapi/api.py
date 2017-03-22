@@ -13,6 +13,7 @@ import jsonurl
 import base64
 from functools import wraps
 from flask_mail import Mail, Message
+from math import cos, sqrt
 #from flask_restful import reqparse, abort, Api, Resource
 
 import textblob
@@ -760,18 +761,38 @@ class VenueListAPI(Resource):
         if session['user_rating'] != '':
             print "~~~ user_rating:", session['user_rating']
             venues_result_set = venues_result_set.filter(UserVenue.user_rating.in_(session['user_rating']))
+
+        #Pull the results
+        venues_result_set = venues_result_set.limit(300)
+
+        # If an end user chooses to sort by distance, sorting takes place in python
+        # since it's much easier than sorting in sql
+
+        # Distance Calc functions and Sorting Functions
+        def calc_distance(obj):
+            return sqrt(pow(69.1 * (obj.location.latitude - float(latitude_start)), 2) + pow(69.1 * (obj.location.longitude - float(longitude_start)) * cos(obj.location.latitude / 57.3), 2))
+        def sort_by_most_recently_added(obj):
+            obj.location.distance = round(calc_distance(obj),1)
+            return obj.user_venue.added_dt
+        def sort_by_user_rating(obj):
+            obj.location.distance = round(calc_distance(obj),1)
+            return obj.user_venue.user_rating
+        def sort_by_distance(obj):
+            obj.location.distance = round(calc_distance(obj),1)
+            return obj.location.distance
+
         if session['sort_by'] == 'recent':
             print "~~~ sort_by:", session['sort_by']
-            venues_result_set = venues_result_set.order_by(UserVenue.added_dt.desc())
+            #venues_result_set = venues_result_set.order_by(UserVenue.added_dt.desc())
+            venues_result_set = sorted(venues_result_set, key=sort_by_most_recently_added)
         elif session['sort_by'] == 'rating':
             print "~~~ sort_by:", session['sort_by']
-            venues_result_set = venues_result_set.order_by(UserVenue.user_rating.desc())
-        elif session['sort_by'] == 'recent':
+            #venues_result_set = venues_result_set.order_by(UserVenue.user_rating.desc())
+            venues_result_set = sorted(venues_result_set, key=sort_by_user_rating, reverse=True)
+        elif session['sort_by'] == 'distance':
             print "~~~ sort_by:", session['sort_by']
-            venues_result_set = venues_result_set.order_by(UserVenue.user_rating.desc())            
-
-        #print '-'*50
-        venues_result_set = venues_result_set.limit(300)
+            #print "\r\nhttps://www.google.com/maps/@%s,%s,18z" % (latitude_start, longitude_start)
+            venues_result_set = sorted(venues_result_set, key=sort_by_distance)
 
 
         venues =[]
@@ -830,6 +851,7 @@ class VenueListAPI(Resource):
                  city=row.location.city,
                  state=row.location.state,
                  country=row.location.country,
+                 distance = row.location.distance,
                  source=row.source,
                  foursquare_reviews=row.foursquare_reviews,
                  foursquare_rating=str_to_float(row.foursquare_rating), 
