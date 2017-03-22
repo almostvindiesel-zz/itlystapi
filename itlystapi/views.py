@@ -66,7 +66,7 @@ from boto.s3.key import Key
 @app.route('/', methods=['GET'])
 @app.route('/lp', methods=['GET'])
 def show_landing_page():
-    return render_template('lp.html')
+    return render_template('lp.html', hostname_web=app.config['HOSTNAME_WEB'])
 
 
 # ----------------------------------------------------------------------------

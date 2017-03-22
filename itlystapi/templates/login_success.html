@@ -8,5 +8,14 @@
   </head>
 
 <br>
-<p> You're logged in. <a href=/user/sign-out>Click to logout</a></p>
+<p> You're logged in
+{% if email %}
+as {{email}}.
+{% else %}
+.
+{% endif %}
+
+<p><a href=/user/sign-out>Click to logout</a></p>
+
+<p><a href='{{itlyst_web_hostname}}'>Or go back to itlyst</a></p>
 

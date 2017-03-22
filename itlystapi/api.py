@@ -94,7 +94,7 @@ def login():
         #authtoken = base64.b64encode(u.username + ':' + u.password
 
         #return redirect("/", code=302)
-        return jsonify("You are logged in!")
+        return redirect("/post_login_confirmation")
     else:
         return redirect("/user/sign-in", code=302)
 
@@ -134,11 +134,19 @@ def post_registration():
 
 @app.route('/post_login_confirmation')
 def post_login_confirmation():
-    return render_template('login_success.html')
+    try:
+        if 'user_id' in session:
+            u = User.query.filter_by(id = session['user_id']).first()
+            email = u.email
+        else:
+            email = None
+    except Exception as e:
+        print "Could not get user email address. Exception: ", e
+    return render_template('login_success.html', email = u.email, itlyst_web_hostname = app.config['HOSTNAME_WEB'])
 
 @app.route('/post_email_confirmation')
 def post_email_confirmation():
-    return render_template('email_confirmation_success.html')
+    return render_template('email_confirmation_success.html', itlyst_web_hostname = app.config['HOSTNAME_WEB'])
 
 
 # --------------------------------------------- API Resources
@@ -447,17 +455,28 @@ class VenueAPI(Resource):
         try:
             json = jsonurl.parse_query(request.data)
             user_id = json['user_id']
-            user_rating = json['user_rating']
         except Exception as e:
             print "Could not get some parameters: ", e.message
             user_id = ''
+
+        try:
+            up_vote_change = json['up_vote_change']
+        except Exception as e:
+            print "Could not get some parameters: ", e.message
+            up_vote_change = ''
+
+        try:
+            user_rating = json['user_rating']
+        except Exception as e:
+            print "Could not get some parameters: ", e.message
             user_rating = ''
 
         #Write Parameters
         print "Updating user_venue..."
-        print "--- user_rating: ", user_rating
         print "--- user_id: ", user_id
         print "--- venue_id: ", venue_id
+        print "--- user_rating: ", user_rating
+        print "--- up_vote_change: ", up_vote_change
 
         if user_rating:
             try:
@@ -467,6 +486,26 @@ class VenueAPI(Resource):
                 db.session.commit()
             except Exception as e:
                 print "Err ", e
+
+        if up_vote_change:
+            if up_vote_change == 'increase':
+                try:
+                    sql = 'update user_venue set up_votes = up_votes + %s where venue_id = %s and user_id = %s' % (1, venue_id, user_id)
+                    db.session.execute(sql)
+                    db.session.commit()
+                except Exception as e:
+                    print "Err ", e
+            elif up_vote_change == 'decrease':
+                try:
+                    sql = 'update user_venue set up_votes = up_votes + %s where venue_id = %s and user_id = %s' % (-1, venue_id, user_id)
+                    result = db.session.execute(sql)
+                    results = db.session.commit()
+                    #print '-'*10
+                    #print results
+                    #print result
+                    #print '-'*10
+                except Exception as e:
+                    print "Err ", e
 
         return '', 204
 
@@ -776,7 +815,7 @@ class VenueListAPI(Resource):
             return obj.user_venue.added_dt
         def sort_by_user_rating(obj):
             obj.location.distance = round(calc_distance(obj),1)
-            return obj.user_venue.user_rating
+            return obj.user_venue.user_rating + obj.user_venue.up_votes
         def sort_by_distance(obj):
             obj.location.distance = round(calc_distance(obj),1)
             return obj.location.distance
@@ -867,6 +906,7 @@ class VenueListAPI(Resource):
                  yelp_id=row.yelp_id,
                  is_starred=row.user_venue.is_starred,
                  user_rating=row.user_venue.user_rating,
+                 up_votes=row.user_venue.up_votes,
                  user_rating_display=False,
                  added_dt=row.added_dt
             )

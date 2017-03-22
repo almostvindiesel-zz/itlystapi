@@ -788,15 +788,16 @@ class Note(db.Model):                                                           
 #insert into user_venue (user_id,venue_id,is_hidden,is_starred,added_dt,updated_dt) 
 # ALTER TABLE user_venue add column user_rating integer default 0;
 # update user_venue set user_rating = 4 where is_starred = true 
-# alter table user_venue add 
+# ALTER TABLE user_venue add column up_votes integer default 0 after user_rating
 class UserVenue(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     venue_id = db.Column(db.Integer, db.ForeignKey('venue.id'))
 
     is_hidden  = db.Column(db.Boolean(), default=False)                                      
-    is_starred = db.Column(db.Boolean(), default=False)       
+    is_starred = db.Column(db.Boolean(), default=False) 
     user_rating = db.Column(db.Integer, default=0)                          
+    up_votes = db.Column(db.Integer, default=0)
 
     added_dt  = db.Column(db.DateTime(timezone=True), server_default=func.now())
     updated_dt  = db.Column(db.DateTime(timezone=True), onupdate=func.now())
