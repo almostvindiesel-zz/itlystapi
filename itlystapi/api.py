@@ -106,29 +106,6 @@ def register():
 
 @app.route('/post_registration')
 def post_registration():
-    #After registration, send welcome email to end user 
-
-    #Send Welcome Email
-    try:
-        if 'user_id' in session:
-            u = User.query.filter_by(id = session['user_id']).first()
-            recipient = u.email
-            subject = "Welcome to itlyst - Install Chrome Extension"
-            sender = app.config['MAIL_DEFAULT_SENDER']
-            msg = Message(subject,
-                sender=sender,
-                recipients=[recipient])
-            msg.body = "testing"
-            msg.html = render_template('flask_user/emails/welcome_message.html', server_web=app.config['HOSTNAME_WEB'])
-            print "Sending welcome email..."
-            mail.send(msg)
-            print "...SENT "
-        else:
-            print "Could not get user_id and thus email address. Not able to send welcome email", e
-
-    except Exception as e:
-        print "Could not send welcome email. Exception:", e
-
     #Return registration confirmatiomn
     return render_template('registration_success.html')
 
@@ -146,6 +123,33 @@ def post_login_confirmation():
 
 @app.route('/post_email_confirmation')
 def post_email_confirmation():
+
+    print "Preparing to send welcome email"
+
+    #Send Welcome Email
+    try:
+        if 'user_id' in session:
+            u = User.query.filter_by(id = session['user_id']).first()
+            recipient = u.email
+            subject = "Welcome to itlyst - Install Chrome Extension"
+            sender = app.config['MAIL_DEFAULT_SENDER']
+            msg = Message(subject,
+                sender=sender,
+                recipients=[recipient])
+            msg.body = "testing"
+            msg.html = render_template('flask_user/emails/welcome_message.html', server_web=app.config['HOSTNAME_WEB'])
+            print "Sending welcome email..."
+            mail.send(msg)
+            print "...SENT "
+        else:
+            print "Could not get user_id and thus email address. Not able to send welcome email"
+
+    except Exception as e:
+        print "Could not send welcome email. Exception:", e
+
+
+    print '~' * 50
+    print session
     return render_template('email_confirmation_success.html', itlyst_web_hostname = app.config['HOSTNAME_WEB'])
 
 
