@@ -241,21 +241,24 @@ class Location(db.Model):
     def set_city_state_country_with_lat_lng_from_google_location_api(self):
 
         try: 
-            gurl = 'http://maps.googleapis.com/maps/api/geocode/json?latlng=%s,%s&sensor=false' % (self.latitude, self.longitude)
-            print "--- Searching for Location attributes from Google Loc API on lat (%s) long (%s): \r\n %s " % (self.latitude, self.longitude, gurl)
+            if self.latitude and self.longitude:
+                gurl = 'http://maps.googleapis.com/maps/api/geocode/json?latlng=%s,%s&sensor=false' % (self.latitude, self.longitude)
+                print "--- Searching for Location attributes from Google Loc API on lat (%s) long (%s): \r\n %s " % (self.latitude, self.longitude, gurl)
 
-            r = requests.get(gurl)
-            g_json = r.json()
-            for datums in g_json['results'][0]['address_components']:
-                if datums['types'][0] == 'locality':
-                    self.city = datums['long_name']
-                    print "--- From Google Lat Long API, City:  ", datums['long_name']
-                if datums['types'][0] == 'administrative_area_level_1':
-                    self.state = datums['long_name']
-                    print "--- From Google Lat Long API, State: ", datums['long_name']
-                if datums['types'][0] == 'country':
-                    self.country = datums['long_name']
-                    print "--- From Google Lat Long API, Country: ", datums['long_name']
+                r = requests.get(gurl)
+                g_json = r.json()
+                for datums in g_json['results'][0]['address_components']:
+                    if datums['types'][0] == 'locality':
+                        self.city = datums['long_name']
+                        print "--- From Google Lat Long API, City:  ", datums['long_name']
+                    if datums['types'][0] == 'administrative_area_level_1':
+                        self.state = datums['long_name']
+                        print "--- From Google Lat Long API, State: ", datums['long_name']
+                    if datums['types'][0] == 'country':
+                        self.country = datums['long_name']
+                        print "--- From Google Lat Long API, Country: ", datums['long_name']
+            else: 
+                raise Exception('Lat and Long are not set')
         
         except Exception as e:
             print "Could not get data from google api: ", e.message, e.args

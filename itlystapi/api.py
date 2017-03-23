@@ -1238,13 +1238,16 @@ class NewNoteAPI(Resource):
                 # Choose the one that has the closest matching name
                 fsv = None
                 for fsvenue in fsvs.venues:
-                    fuzzy_match_score = fuzz.token_sort_ratio(v.name, fsvenue.name)
+                    #fuzzy_match_score = fuzz.token_sort_ratio(v.name, fsvenue.name)
+                    #fuzz_ratio = fuzz.ratio(v.name, fsvenue.name)
+                    #fuzzy_match_score, fuzz_ratio, 
+                    fuzzy_match_score = fuzz.partial_ratio(v.name, fsvenue.name)
                     print "Venue Match Ratio: %s. Source: [%s] Foursquare: [%s]" % (fuzzy_match_score, v.name, fsvenue.name)
 
-                    if fuzzy_match_score > 80:
+                    if fuzzy_match_score >= 75:
                         fsv = fsvenue
                         break
-                
+                #exit()
                 if fsv:
                     v.name = fsv.name
                     v.foursquare_id = fsv.foursquare_id
