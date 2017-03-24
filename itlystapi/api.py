@@ -733,21 +733,42 @@ class VenueListAPI(Resource):
 
 
 
-        print "--- session['page_user_id']: ", session['page_user_id']
+        print "--- page_user_id: ", session['page_user_id']
+        print "--- user_id     : ", session['user_id']
         #print "--- session['page_user_id'] type: ", type(session['page_user_id'])
 
         #Query Venues, apply filters
         #                                #.filter() \ #.join(UserVenue, UserVenue.user_id == session['page_user_id']) \
+
+        """
         venues_result_set = Venue.query \
                                 .join(Location) \
                                 .join(UserVenue,      and_(Venue.id == UserVenue.venue_id, UserVenue.user_id == session['page_user_id']) ) \
                                 .outerjoin(Note,      and_(UserVenue.venue_id == Note.venue_id, Note.user_id == session['page_user_id']) ) \
                                 .outerjoin(UserImage, and_(UserVenue.venue_id == UserImage.venue_id, UserImage.user_id == session['page_user_id']) ) \
                                 .filter(UserVenue.user_id == session['page_user_id'])
+        """
+
+        venues_result_set = Venue.query \
+                            .join(Location) \
+                            .filter(UserVenue.user_id == session['page_user_id']) \
+                            .join(UserVenue, Venue.id == UserVenue.venue_id )
+
+        """
+        venues_result_set = Venue.query \
+                                .join(Location) \
+                                .join(UserVenue,      and_(Venue.id == UserVenue.venue_id, UserVenue.user_id == session['page_user_id']) ) \
+                                .outerjoin(Note,      and_(UserVenue.venue_id == Note.venue_id, Note.user_id == session['page_user_id']) ) \
+                                .outerjoin(UserImage, and_(UserVenue.venue_id == UserImage.venue_id, UserImage.user_id == session['page_user_id']) ) \
+                                #.filter(UserVenue.user_id == session['page_user_id']) 
+
+                                #.filter(User.id == session['page_user_id']) 
+                                #.filter(Note.user_id == session['page_user_id']) 
+        """
+
 
         #print "--- Get Venue SQL before Location Filter: \r\n", 
         #print str(venues_result_set.statement.compile(dialect=postgresql.dialect()))
-
         #print venues_result_set
 
 
@@ -774,10 +795,10 @@ class VenueListAPI(Resource):
 
             zoom = session['zoom']
 
-            sql = "SELECT id, latitude, longitude, SQRT( \
+            sql = "SELECT id, latitude, longitude, SQRT(\
                     POW(69.1 * (latitude - %s), 2) + \
                     POW(69.1 * (%s - longitude) * COS(latitude / 57.3), 2)) AS distance \
-                    FROM location \
+                    FROM location l\
                     GROUP BY id \
                     HAVING SQRT( \
                     POW(69.1 * (latitude - %s), 2) + \
@@ -785,12 +806,37 @@ class VenueListAPI(Resource):
                     % (latitude_start, longitude_start, latitude_start, longitude_start, session['zoom'])
 
             #!!! Add Ordering for Locations
-
             locations = db.session.execute(sql)
             locationIDs = []
             for location in locations:
                 locationIDs.append(location.id)
             venues_result_set = venues_result_set.filter(Location.id.in_(locationIDs))
+
+
+
+        """
+        print 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+        print vrs
+        print "vrs[1].location.   ", vrs[1].location
+        print "vrs[1].users.      ", vrs[1].users
+        print "vrs[1].notes.      ", vrs[1].notes
+        print "vrs[1].images.     ", vrs[1].images
+        print 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+        print vrs[1].users.filter(UserVenue.user_id == session['page_user_id'])
+        print 'cccccccccccccccccccccccccccccc'
+        """
+
+        #!!! Remove all usersvenues that aren't valid... not sure why i can't get these many to many relationships to work
+        for vidx, venue in enumerate(venues_result_set):
+            i = 0
+            #print "len(venue.uservenues)", len(venue.users)
+            while i<len(venue.users):
+                if venue.users[i].user_id != session['page_user_id']:
+                    del venues_result_set[vidx].users[i]
+                    #print 'a'
+                else:
+                    i+=1
+        
 
         if session['country'] != '':
             print "~~~ filtered country:", session['country']
@@ -806,7 +852,35 @@ class VenueListAPI(Resource):
             venues_result_set = venues_result_set.filter(UserVenue.user_rating.in_(session['user_rating']))
 
         #Pull the results
-        venues_result_set = venues_result_set.limit(300)
+        #venues_result_set = venues_result_set.filter(UserVenue.user_id == session['page_user_id']) 
+        #venues_result_set = venues_result_set.limit(300)
+        
+
+        """
+        print 'aaaaaaaaa'
+        print venues_result_set[0]
+        print venues_result_set[1]
+        print venues_result_set[2]
+        print venues_result_set[3]
+        print venues_result_set[4]
+        print venues_result_set[1].id
+        print venues_result_set[2].id
+        print venues_result_set[3].id
+        print venues_result_set[4].id
+        print venues_result_set[0].users
+        print venues_result_set[1].users
+        print venues_result_set[2].users        
+        print venues_result_set[3].users        
+        print venues_result_set[4].users        
+        print venues_result_set[0].name
+        print venues_result_set[1].name
+        print venues_result_set[2].name
+        print venues_result_set[3].name
+        print venues_result_set[4].name
+        print 'bbbbbbbbbb'
+        """
+
+
 
         # If an end user chooses to sort by distance, sorting takes place in python
         # since it's much easier than sorting in sql
@@ -816,10 +890,12 @@ class VenueListAPI(Resource):
             return sqrt(pow(69.1 * (obj.location.latitude - float(latitude_start)), 2) + pow(69.1 * (obj.location.longitude - float(longitude_start)) * cos(obj.location.latitude / 57.3), 2))
         def sort_by_most_recently_added(obj):
             obj.location.distance = round(calc_distance(obj),1)
-            return obj.user_venue.added_dt
+            #return obj.uservenues[0].added_dt
+            return obj.users[0].added_dt
         def sort_by_user_rating(obj):
             obj.location.distance = round(calc_distance(obj),1)
-            return obj.user_venue.user_rating + obj.user_venue.up_votes
+            #return obj.uservenues[0].user_rating + obj.uservenues[0].up_votes
+            return obj.users[0].user_rating + obj.users[0].up_votes
         def sort_by_distance(obj):
             obj.location.distance = round(calc_distance(obj),1)
             return obj.location.distance
@@ -840,15 +916,20 @@ class VenueListAPI(Resource):
 
         venues =[]
         for row in venues_result_set:
+            #print "up_votes: " , row.uservenues[0].up_votes
 
             notes_array = []
+            #print "----- notes:"
             for note_row in row.notes:
+                #print note_row.user_id, note_row.venue_id
+
                 #!!! I shouldn't have to apply a limit here, but if I don't, extra other users' notes are added. not sure why
                 #!!! they escape the first sql statement yet
                 #print "session['page_user_id']: ", session['page_user_id']
                 #print "inote_row.user_id: ", note_row.user_id
                 if note_row.user_id  == session['page_user_id']:
                     #!!! Add source back to model
+                    #print "^ saved this one"
                     if note_row.source_url.find('tripadvisor') >= 0:
                         note_source = 'tripadvisor'
                     elif note_row.source_url.find('yelp') >= 0:
@@ -857,7 +938,6 @@ class VenueListAPI(Resource):
                         note_source = 'foursquare'
                     else:
                         note_source = 'other'
-
 
                     item = dict(
                         note = note_row.note,
@@ -882,6 +962,7 @@ class VenueListAPI(Resource):
                         )
                     images_array.append(item)
             #!!! convert rating from string to float
+
             item = dict(
                  notes=notes_array, 
                  images=images_array, 
@@ -908,15 +989,19 @@ class VenueListAPI(Resource):
                  yelp_rating=str_to_float(row.yelp_rating),
                  yelp_url=row.yelp_url,
                  yelp_id=row.yelp_id,
-                 is_starred=row.user_venue.is_starred,
-                 user_rating=row.user_venue.user_rating,
-                 up_votes=row.user_venue.up_votes,
+                 is_starred=row.users[0].is_starred,
+                 user_rating=row.users[0].user_rating,
+                 up_votes=row.users[0].up_votes,
                  user_rating_display=False,
                  added_dt=row.added_dt
             )
 
             venues.append(item) 
-                 
+            """
+            is_starred=row.uservenues[0].is_starred,
+            user_rating=row.uservenues[0].user_rating,
+            up_votes=row.uservenues[0].up_votes,
+            """
 
         #Google Maps Requires the response to have a particular format
         #!!! fix this
@@ -979,10 +1064,10 @@ class PageListAPI(Resource):
 
 
         if session['country'] != '':
-            print "~~~ filtered country:", session['country']
+            print "--- filtered country:", session['country']
             page_notes_result_set = page_notes_result_set.filter(Location.country == session['country'])
         if session['is_hidden'] != '':
-            print "~~~ is_hidden:", session['is_hidden']
+            print "--- is_hidden:", session['is_hidden']
             page_notes_result_set = page_notes_result_set.filter(UserPage.is_hidden == False)
         #print '='*50
         #print page_notes_result_set;

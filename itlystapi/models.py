@@ -393,6 +393,9 @@ class User(db.Model, UserMixin):
     email = db.Column(db.String(255), nullable=False, unique=True)
     confirmed_at = db.Column(db.DateTime())
 
+    venues = db.relationship("UserVenue", back_populates="user")
+
+
     # User information
     active = db.Column('is_active', db.Boolean(), nullable=False, server_default='0')
     hasCompletedMobileFtue = db.Column('has_completed_mobile_ftue', db.Boolean(), nullable=False, server_default='0')
@@ -792,6 +795,23 @@ class Note(db.Model):                                                           
 # ALTER TABLE user_venue add column user_rating integer default 0;
 # update user_venue set user_rating = 4 where is_starred = true 
 # ALTER TABLE user_venue add column up_votes integer default 0 after user_rating
+
+#!!! unique constraint? table args? how create???
+
+"""
+users = db.Table('user_venue',
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id')),
+    db.Column('venue_id', db.Integer, db.ForeignKey('venue.id')),
+    db.Column('is_hidden', db.Boolean(), default=False),
+    db.Column('is_starred', db.Boolean(), default=False),
+    db.Column('user_rating', db.Integer, default=0),                   
+    db.Column('up_votes', db.Integer, default=0),
+    db.Column('added_dt', db.DateTime(timezone=True), server_default=func.now()),
+    db.Column('updated_dt', db.DateTime(timezone=True), onupdate=func.now())
+)
+"""
+
+
 class UserVenue(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
@@ -805,6 +825,10 @@ class UserVenue(db.Model):
     added_dt  = db.Column(db.DateTime(timezone=True), server_default=func.now())
     updated_dt  = db.Column(db.DateTime(timezone=True), onupdate=func.now())
     __table_args__ = {'mysql_charset': 'utf8'}
+
+    user = relationship("User", back_populates="venues")
+    venue = relationship("Venue", back_populates="users")
+
 
     UniqueConstraint('user_id', 'venue_id', name='user_venue_constraint')
 
@@ -834,6 +858,7 @@ class UserVenue(db.Model):
         except Exception as e:
             print "Could not insert user venue: ", self.id, e.message, e.args
 
+
 # ALTER TABLE venue add column is_hidden boolean default false after source_title
 # ALTER TABLE venue add column is_starred boolean default false after source_title
 
@@ -849,8 +874,6 @@ set parent_category = 'place'
 where (tripadvisor_url like '%Attraction%' or tripadvisor_url like '%Hotel%')
   and parent_category = 'unknown'
 """
-
-
 class Venue(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     location_id = db.Column(db.Integer, db.ForeignKey('location.id'))
@@ -876,11 +899,23 @@ class Venue(db.Model):
     yelp_reviews  = db.Column(db.Integer)
 
     location = db.relationship('Location', backref='venue_location', uselist=False)
-    user_venue = db.relationship('UserVenue', backref='user_venue', uselist=False)
 
-    notes = db.relationship('Note', backref='venue', lazy='dynamic')
-    images = db.relationship('UserImage', backref='user_image_v', lazy='dynamic')
-    categories = db.relationship('VenueCategory', backref='venue', lazy='dynamic')
+    #!!!???
+    #user_venue = db.relationship('UserVenue', backref='venue', lazy='dynamic')
+    #user_venue = db.relationship('UserVenue', backref='user_venue', uselist=False)
+
+    users = db.relationship('UserVenue', back_populates="venue", lazy='immediate')
+
+    #children = relationship("Association", back_populates="parent")
+
+    
+    #!!!???
+
+    #uservenues = relationship("UserVenue", back_populates="venue")
+
+    notes = db.relationship('Note', backref='venue', lazy='immediate')
+    images = db.relationship('UserImage', backref='user_image_v', lazy='immediate')
+    categories = db.relationship('VenueCategory', backref='venue', lazy='immediate')
 
     added_dt  = db.Column(db.DateTime(timezone=True), server_default=func.now())
     updated_dt  = db.Column(db.DateTime(timezone=True), onupdate=func.now())

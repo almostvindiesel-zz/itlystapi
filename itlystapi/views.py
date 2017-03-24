@@ -38,8 +38,7 @@ from PIL import Image
 from resizeimage import resizeimage
 import imghdr
 
-from models import db, User, Note, Venue, Location, VenueCategory, FoursquareVenue, FoursquareVenues
-from models import UserVenue, UserPage, Page, PageNote, UserImage, EmailInvite, Zdummy
+from models import *
 
 reload(sys)
 sys.setdefaultencoding('utf-8')
