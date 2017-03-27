@@ -77,9 +77,10 @@ def validate_login():
     email = auth.username
     u = User.query.filter_by(email = email).first()
     user_id = u.id
+    username = u.username
     has_completed_mobile_ftue = u.hasCompletedMobileFtue
 
-    return jsonify(login_status=True, user_id=user_id, has_completed_mobile_ftue=has_completed_mobile_ftue)
+    return jsonify(login_status=True, user_id=user_id, username=username, has_completed_mobile_ftue=has_completed_mobile_ftue)
 
 @app.route('/login')
 @login_required 
@@ -147,6 +148,27 @@ def post_email_confirmation():
     except Exception as e:
         print "Could not send welcome email. Exception:", e
 
+
+    #Notify admin that a new users has signed up
+    try:
+        if 'user_id' in session:
+            u = User.query.filter_by(id = session['user_id']).first()
+            recipient = u.email
+            subject = u.email + " just signed up for itlyst"
+            sender = app.config['MAIL_DEFAULT_SENDER']
+            msg = Message(subject,
+                sender=sender,
+                recipients=['support@itlyst.com'])
+            msg.body = "..."
+            #msg.html = render_template('flask_user/emails/welcome_message.html', server_web=app.config['HOSTNAME_WEB'])
+            print "Sending admin notificaiton email..."
+            mail.send(msg)
+            print "...SENT "
+        else:
+            print "Could not send admin notification email"
+
+    except Exception as e:
+        print "Could not send admin notification email. Exception:", e
 
     print '~' * 50
     print session
@@ -333,6 +355,20 @@ def resize_image(path, image_filename, image_filename_new, new_width):
         return image_filename
 
 class UserAPI(Resource):
+
+    #@requires_auth
+    def get(self):
+
+        username = request.args.get('username', None)
+        print "Username is %s. Querying for user_id" % (username)
+        if username:
+            u = User.query.filter_by(username = username).first()
+            user_id =  u.id
+        else:
+            user_id = None
+        print "User Id for %s is %s" % (username, user_id)
+
+        return jsonify(user_id=user_id)
 
     @requires_auth
     def post(self):
@@ -594,18 +630,30 @@ class CityAPI(Resource):
 
     #@requires_auth
     def get(self):
-        l = Location('city', None, None, None)
+        
+        latitude = request.args.get('latitude', None)
+        longitude = request.args.get('longitude', None)
+        google_place_id = request.args.get('google_place_id', None)
+        #print "latitude %s longitude %s" % (latitude, longitude)
 
-        l.google_place_id = request.args.get('google_place_id', None)
-
-        if l.google_place_id:
+        #Use Case 1: Given a google place id, return lat and long
+        if google_place_id:
+            l = Location('city', None, None, None)
+            l.google_place_id = google_place_id
             l.supplement_city_with_lat_lng_using_google_place_id()
             l.print_to_console()
+            coords = dict(latitude=l.latitude,longitude=l.longitude)
+            
+        #Use Case 2: Given a lat and lng, return a city
+        elif latitude and longitude:
+            l = Location('city', None, latitude, longitude)
+            l.set_city_state_country_with_lat_lng_from_google_location_api()
+            coords = dict(city=l.city, latitude=latitude,longitude=longitude)
+        else:
+            coords = dict(city=None, latitude=None,longitude=None)
 
-        coords = dict(latitude=l.latitude,longitude=l.longitude)
-
+        print "Returning coordinates", coords
         return jsonify(city=coords)
-
 
 
 class UserCityAPI(Resource):
@@ -726,7 +774,8 @@ class LocationListAPI(Resource):
 
 class VenueListAPI(Resource):
 
-    @requires_auth
+    #@requires_auth
+    #!!!removed this as a hack so that guests can view my reviews
     def get(self):
 
         initialize_session_vars()
@@ -903,7 +952,7 @@ class VenueListAPI(Resource):
         if session['sort_by'] == 'recent':
             print "~~~ sort_by:", session['sort_by']
             #venues_result_set = venues_result_set.order_by(UserVenue.added_dt.desc())
-            venues_result_set = sorted(venues_result_set, key=sort_by_most_recently_added)
+            venues_result_set = sorted(venues_result_set, key=sort_by_most_recently_added, reverse=True)
         elif session['sort_by'] == 'rating':
             print "~~~ sort_by:", session['sort_by']
             #venues_result_set = venues_result_set.order_by(UserVenue.user_rating.desc())
@@ -1230,6 +1279,8 @@ class NewNoteAPI(Resource):
                 response_json.get('longitude', None)
             )
 
+            print "lat and long From get: %s %s" % (response_json.get('latitude', None), response_json.get('longitude', None))
+
             n = None
             ui = None
             if response_json.get('image_url'):
@@ -1318,6 +1369,8 @@ class NewNoteAPI(Resource):
                 #Call the Foursquare API and find the venue in the provided city
                 #Use that data to supplement venue data
                 print "--- Searching for matching venue using Foursquare API"
+                print "--- Name: %s City: %s Latitude: %s Longitude: %s" % (v.name, l.city, l.latitude, l.longitude)
+
                 fsvs = FoursquareVenues(v.name, l.city, l.latitude, l.longitude)
                 fsvs.search()
 
@@ -1365,8 +1418,10 @@ class NewNoteAPI(Resource):
 
                     # yelp pages dont show lat/long, override with foursquare api
                     if not l.latitude:
+                        print "--- Overriding latitude with foursquare venue latitude"
                         l.latitude = fsv.latitude       
                     if not l.longitude:
+                        print "--- Overriding longitude with foursquare venue longitude"
                         l.longitude = fsv.longitude
 
                 else:

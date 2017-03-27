@@ -190,11 +190,15 @@ class Location(db.Model):
         try: 
             if self.latitude:
                 self.latitude = float(latitude)
+            else: 
+                self.latitude = latitude
         except Exception as e:
             print "Latitude not convertable to float", e.message, e.args
         try: 
             if self.longitude:
                 self.longitude = float(longitude)
+            else: 
+                self.longitude = longitude
         except Exception as e:
             print "Longitude not convertable to float", e.message, e.args
         self.address1 = None
@@ -241,6 +245,10 @@ class Location(db.Model):
     def set_city_state_country_with_lat_lng_from_google_location_api(self):
 
         try: 
+            #print '----'
+            #print self.latitude
+            #print self.longitude
+            #print '----'
             if self.latitude and self.longitude:
                 gurl = 'http://maps.googleapis.com/maps/api/geocode/json?latlng=%s,%s&sensor=false' % (self.latitude, self.longitude)
                 print "--- Searching for Location attributes from Google Loc API on lat (%s) long (%s): \r\n %s " % (self.latitude, self.longitude, gurl)
