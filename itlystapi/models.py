@@ -18,6 +18,8 @@ from sqlalchemy import UniqueConstraint, distinct, func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import relationship
 
+import unicodedata
+import re
 #from PIL import Image
 #from resizeimage import resizeimage
 #import imghdr
@@ -65,7 +67,8 @@ class FoursquareVenue():
             venue_json = r.json()
             
             self.foursquare_id = venue_json['response']['venue']['id']
-            self.foursquare_url = 'https://foursquare.com/v/' + self.foursquare_id
+            #self.foursquare_url = 'https://foursquare.com/v/' + slugify(v.name) + '/' + v.foursquare_id
+            self.foursquare_url = 'https://foursquare.com/v/' + v.foursquare_id
 
 
             try:
@@ -123,7 +126,7 @@ class Locations():
     def search_for_locations_by_city(self, q):
 
         try: 
-            gurl = 'https://maps.googleapis.com/maps/api/place/autocomplete/json?input=%s&types=(cities)&key=%s' % (q, app.config['GMAPS_PLACES_API_KEY'])
+            gurl = 'https://maps.googleapis.com/maps/api/place/autocomplete/json?input=%s&types=(regions)&key=%s' % (q, app.config['GMAPS_PLACES_API_KEY'])
             print "--- Searching for City from Google Loc API: %s" % (gurl)
 
             r = requests.get(gurl)
@@ -298,6 +301,17 @@ class Location(db.Model):
         except Exception as e:
             print "Could not get data from google api : ", e.message, e.args
             
+def slugify(value):
+    """
+    Normalizes string, converts to lowercase, removes non-alpha characters,
+    and converts spaces to hyphens.
+    """
+    value = unicodedata.normalize('NFKD', value).encode('ascii', 'ignore').decode('ascii')
+    #print value
+    value = re.sub('[^\w\s-]', '', value).lower()
+    print value
+    #value = re.sub('[^\w\s-]', '', value).strip().lower()
+    return re.sub('[-\s]','-', value)
 
 class FoursquareVenues():
 
@@ -358,6 +372,7 @@ class FoursquareVenues():
 
                 v.foursquare_id = venue['id']
                 v.foursquare_url = 'https://foursquare.com/v/' + v.foursquare_id
+                #v.foursquare_url = 'https://foursquare.com/v/' + slugify(venue['name']) + '/' + v.foursquare_id
                 v.foursquare_reviews = venue['stats']['tipCount']
                 v.name = venue['name']
                 v.latitude = venue['location']['lat']

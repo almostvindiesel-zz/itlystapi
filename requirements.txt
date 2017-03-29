@@ -18,6 +18,7 @@ python-resize-image
 image
 furl
 textblob
+unidecode
 
 flask-mysql
 MySQL-python

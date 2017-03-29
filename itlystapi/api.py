@@ -14,6 +14,7 @@ import base64
 from functools import wraps
 from flask_mail import Mail, Message
 from math import cos, sqrt
+
 #from flask_restful import reqparse, abort, Api, Resource
 
 import textblob
