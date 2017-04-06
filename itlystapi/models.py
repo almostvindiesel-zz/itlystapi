@@ -67,8 +67,8 @@ class FoursquareVenue():
             venue_json = r.json()
             
             self.foursquare_id = venue_json['response']['venue']['id']
-            #self.foursquare_url = 'https://foursquare.com/v/' + slugify(v.name) + '/' + v.foursquare_id
-            self.foursquare_url = 'https://foursquare.com/v/' + v.foursquare_id
+            #self.foursquare_url = 'https://foursquare.com/v/' + slugify(self.name) + '/' + self.foursquare_id
+            self.foursquare_url = 'https://foursquare.com/v/' + self.foursquare_id
 
 
             try:
@@ -93,8 +93,6 @@ class FoursquareVenue():
                 print "Could not get foursquare lat or long"
 
             
-        
-
 
         except Exception as e:
             print "Could not augment data from foursquare api: ", e.message, e.args
@@ -262,12 +260,17 @@ class Location(db.Model):
                     if datums['types'][0] == 'locality':
                         self.city = datums['long_name']
                         print "--- From Google Lat Long API, City:  ", datums['long_name']
+                    # Backup if city can't be found in locality
+                    if not self.city and datums['types'][0] == 'administrative_area_level_4':
+                        self.city = datums['long_name']
+                        print "--- From Google Lat Long API, City:  ", datums['long_name']
                     if datums['types'][0] == 'administrative_area_level_1':
                         self.state = datums['long_name']
                         print "--- From Google Lat Long API, State: ", datums['long_name']
                     if datums['types'][0] == 'country':
                         self.country = datums['long_name']
                         print "--- From Google Lat Long API, Country: ", datums['long_name']
+
             else: 
                 raise Exception('Lat and Long are not set')
         
