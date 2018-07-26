@@ -1061,9 +1061,12 @@ class VenueListAPI(Resource):
                 markers = dict({'markers':venues})
                 return make_response("gmapfeed(" + dumps(markers) + ");")
 
-        print "--- total venues: ", len(venues)
 
-        return jsonify(venues=venues)
+        MAX_VENUES = 15
+        print "--- total venues: ", len(venues), "limiting to ", MAX_VENUES
+
+
+        return jsonify(venues=venues[:MAX_VENUES])
 
 class PageListAPI(Resource):
     def get(self):
