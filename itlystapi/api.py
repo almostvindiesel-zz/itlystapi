@@ -590,6 +590,10 @@ class VenueAPI(Resource):
         return '', 204
 
     #Searches foursquare for a venue 
+
+    """
+    curl -X POST -H 'Content-Type: application/json' -d '{"data":"user_id=2&name=sweet%20bloom&city=denver,co"}' http://localhost:5000/api/v1/venue/search
+    """
     def post(self):
         #session['user_id'] = 2;
         #user_id = session['user_id']
@@ -597,11 +601,16 @@ class VenueAPI(Resource):
 
         #Get Parameters
         try:
+            # print "request.data:"
+            # print request.data
+            # print "request:"
+            # print request
             json = jsonurl.parse_query(request.data)
             name = json['name']
             city = json['city']
         except Exception as e:
             print "Could not get parameters: ", e.message
+            print e
             name = ''
             city = ''
 
@@ -1062,7 +1071,7 @@ class VenueListAPI(Resource):
                 return make_response("gmapfeed(" + dumps(markers) + ");")
 
 
-        MAX_VENUES = 15
+        MAX_VENUES = 25
         print "--- total venues: ", len(venues), "limiting to ", MAX_VENUES
 
 
